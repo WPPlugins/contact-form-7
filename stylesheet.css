@@ -2,6 +2,10 @@ div.wpcf7 {
 	padding: 1em 0;
 }
 
+div#wpcf7-response-output {
+	margin: 0.5em;
+}
+
 div.wpcf7-mail-sent-ok {
 	border: 1px solid #398f14;
 	padding: 0.2em 1em;
@@ -15,4 +19,28 @@ div.wpcf7-mail-sent-ng {
 div.wpcf7-validation-errors {
 	border: 1px solid #f7e700;
 	padding: 0.2em 1em;
+}
+
+span.wpcf7-not-valid-tip {
+	position: absolute;
+	top: 20%;
+	left: 20%;
+	z-index: 100;
+	background: #fff;
+	border: 1px solid #ff0000;
+	font-size: 10pt;
+	width: 280px;
+	padding: 2px;
+}
+
+input.wpcf7-email-not-valid {
+}
+
+input.wpcf7-required-not-valid {
+}
+
+textarea.wpcf7-email-not-valid {
+}
+
+textarea.wpcf7-required-not-valid {
 }

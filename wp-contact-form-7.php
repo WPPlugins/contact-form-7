@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.1
+Version: 1.2
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -35,7 +35,44 @@ class tam_contact_form_seven {
 		add_action('admin_menu', array(&$this, 'add_pages'));
 		add_action('admin_head', array(&$this, 'admin_page_stylesheet'));
 		add_action('wp_head', array(&$this, 'stylesheet'));
+		add_action('wp_head', array(&$this, 'javascript'));
+		add_action('wp_print_scripts', array(&$this, 'load_js'));
+		add_action('init', array(&$this, 'ajax_json_echo'));
 		add_filter('the_content', array(&$this, 'the_content_filter'));
+	}
+	
+	function ajax_json_echo() {
+		if ('POST' == $_SERVER['REQUEST_METHOD'] && isset($_GET['wpcf7']) && 'json' == $_GET['wpcf7']) {
+			if (isset($_POST['_wpcf7'])) {
+				$id = (int) $_POST['_wpcf7'];
+				$contact_forms = $this->contact_forms();
+				if ($cf = $contact_forms[$id]) {
+					$cf = stripslashes_deep($cf);
+					if ($this->mail($cf)) {
+						echo '{ mailSent: 1, message: "' . $this->default_mail_result_message(true) . '" }';
+					} else {
+						echo '{ mailSent: 0, message: "' . $this->default_mail_result_message(false) . '" }';
+					}
+				}
+			}
+			exit();
+		}
+	}
+	
+	function mail($contact_form) {
+		$regex = '/\[\s*([a-zA-Z][0-9a-zA-Z:._-]*)\s*\]/';
+		$callback = create_function('$matches', 'if (isset($_POST[$matches[1]])) return $_POST[$matches[1]]; else return $matches[0];');
+		$mail_subject = preg_replace_callback($regex, $callback, $contact_form['mail']['subject']);
+		$mail_sender = preg_replace_callback($regex, $callback, $contact_form['mail']['sender']);
+		$mail_body = preg_replace_callback($regex, $callback, $contact_form['mail']['body']);
+		$mail_headers = "MIME-Version: 1.0\n"
+			. "From: $mail_sender\n"
+			. "Content-Type: text/plain; charset=\"" . get_option('blog_charset') . "\"\n";
+		if (@wp_mail($contact_form['options']['recipient'], $mail_subject, $mail_body, $mail_headers)) {
+			return true;
+		} else {
+			return false;
+		}
 	}
 	
 	function set_initial() {
@@ -143,13 +180,13 @@ class tam_contact_form_seven {
 
 	function default_form_template() {
 		$template .= '<p><label>' . __('Your Name', 'wpcf7') . ' ' . __('(required)', 'wpcf7') . '<br />' . "\n";
-		$template .= '    [text* your-name "' . __('Your Name', 'wpcf7') . '"] </label></p>' . "\n\n";
+		$template .= '    [text* your-name] </label></p>' . "\n\n";
 		$template .= '<p><label>' . __('Your Email', 'wpcf7') . ' ' . __('(required)', 'wpcf7') . '<br />' . "\n";
-		$template .= '    [email* your-email "' . __('Your Email', 'wpcf7') . '"] </label></p>' . "\n\n";
+		$template .= '    [email* your-email] </label></p>' . "\n\n";
 		$template .= '<p><label>' . __('Subject', 'wpcf7') . '<br />' . "\n";
-		$template .= '    [text your-subject "' . __('Subject', 'wpcf7') . '"] </label></p>' . "\n\n";
+		$template .= '    [text your-subject] </label></p>' . "\n\n";
 		$template .= '<p><label>' . __('Your Message', 'wpcf7') . '<br />' . "\n";
-		$template .= '    [textarea your-message "' . __('Your Message', 'wpcf7') . '"] </label></p>' . "\n\n";
+		$template .= '    [textarea your-message] </label></p>' . "\n\n";
 		$template .= '[submit "' . __('Send', 'wpcf7') . '"]';
 		return $template;
 	}
@@ -178,15 +215,7 @@ class tam_contact_form_seven {
 				$fes = $this->form_elements($cf['form'], false);
 				$validation = $this->validate_form_elements($fes);
 				if ($validation['valid']) {
-					$regex = '/\[\s*([a-zA-Z][0-9a-zA-Z:._-]*)\s*\]/';
-					$callback = create_function('$matches', 'if (isset($_POST[$matches[1]])) return $_POST[$matches[1]]; else return $matches[0];');
-					$mail_subject = preg_replace_callback($regex, $callback, $cf['mail']['subject']);
-					$mail_sender = preg_replace_callback($regex, $callback, $cf['mail']['sender']);
-					$mail_body = preg_replace_callback($regex, $callback, $cf['mail']['body']);
-					$mail_headers = "MIME-Version: 1.0\n"
-						. "From: $mail_sender\n"
-						. "Content-Type: text/plain; charset=\"" . get_option('blog_charset') . "\"\n";
-					if (@wp_mail($cf['options']['recipient'], $mail_subject, $mail_body, $mail_headers)) {
+					if ($this->mail($cf)) {
 						$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => true, 'message' => $this->default_mail_result_message(true));
 					} else {
 						$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => false, 'message' => $this->default_mail_result_message(false));
@@ -198,7 +227,10 @@ class tam_contact_form_seven {
 		}
 
 		$regex = '/\[\s*contact-form\s+(\d+)(?:\s+.*?)?\s*\]/';
-		return preg_replace_callback($regex, array(&$this, 'the_content_filter_callback'), $content);
+		if (is_singular())
+			return preg_replace_callback($regex, array(&$this, 'the_content_filter_callback'), $content, 1);
+		else
+			return preg_replace($regex, '', $content);
 	}
 	
 	function the_content_filter_callback($matches) {
@@ -219,22 +251,32 @@ class tam_contact_form_seven {
 		$form_content = $this->form_elements($cf['form']);
 
 		$form = '<div class="wpcf7" id="wpcf7_' . $id . '">';
-		if (isset($_POST['_wpcf7_mail_sent']) && $_POST['_wpcf7_mail_sent']['id'] == $id) {
-			if ($_POST['_wpcf7_mail_sent']['ok'])
-				$form .= '<div class="wpcf7-mail-sent-ok"><ul><li>' . $_POST['_wpcf7_mail_sent']['message'] . '</li></ul></div>';
-			else
-				$form .= '<div class="wpcf7-mail-sent-ng"><ul><li>' . $_POST['_wpcf7_mail_sent']['message'] . '</li></ul></div>';
-		} elseif (isset($_POST['_wpcf7_validation_errors']) && $_POST['_wpcf7_validation_errors']['id'] == $id) {
-			$form .= '<div class="wpcf7-validation-errors"><ul>';
-			foreach ($_POST['_wpcf7_validation_errors']['messages'] as $err) {
-				$form .= '<li>' . $err . '</li>';
-			}
-			$form .= '</ul></div>';
-		}
-		$form .= '<form action="' . get_permalink() . '#wpcf7_' . $id . '" method="post">';
+		
+		$form .= '<form action="' . get_permalink() . '#wpcf7_' . $id . '" method="post" id="wpcf7_the_form">';
 		$form .= '<input type="hidden" name="_wpcf7" value="' . $id . '" />';
 		$form .= $form_content;
-		$form .= '</form></div>';
+		$form .= '</form>';
+		
+		if (isset($_POST['_wpcf7_mail_sent']) && $_POST['_wpcf7_mail_sent']['id'] == $id) {
+			if ($_POST['_wpcf7_mail_sent']['ok']) {
+				$clsss = ' class="wpcf7-mail-sent-ok"';
+				$content = '<ul><li>' . $_POST['_wpcf7_mail_sent']['message'] . '</li></ul>';
+			} else {
+				$class = ' class="wpcf7-mail-sent-ng"';
+				$content = '<ul><li>' . $_POST['_wpcf7_mail_sent']['message'] . '</li></ul>';
+			}
+		} elseif (isset($_POST['_wpcf7_validation_errors']) && $_POST['_wpcf7_validation_errors']['id'] == $id) {
+			$class = ' class="wpcf7-validation-errors"';
+			$content = '';
+			foreach ($_POST['_wpcf7_validation_errors']['messages'] as $err) {
+				$content .= '<li>' . $err . '</li>';
+			}
+			$content = '<ul>' . $content . '</ul>';
+		}
+		
+		$form .= '<div id="wpcf7-response-output"' . $class . '>' . $content . '</div>';
+		
+		$form .= '</div>';
 		return $form;
 	}
 
@@ -245,7 +287,7 @@ class tam_contact_form_seven {
 		foreach ($form_elements as $fe) {
 			$type = $fe['type'];
 			$name = $fe['name'];
-			$title = $fe['title'];
+			$title = $fe['title'] ? $fe['title'] : $name;
 
 			// Required item (*)
 			if (preg_match('/^(?:text|textarea)[*]$/', $type)) {
@@ -276,14 +318,107 @@ class tam_contact_form_seven {
 	}
 
 	function stylesheet() {
-		$stylesheet_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/admin-stylesheet.css';
+		if (! is_singular())
+			return;
+		
+		$stylesheet_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/stylesheet.css';
 		echo '<link rel="stylesheet" href="' . $stylesheet_url . '" type="text/css" />';
+	}
+	
+	function javascript() {
+		if (! is_singular())
+			return;
+		
+		$override_url = get_permalink();
+		if (false === strrchr($override_url, '?')) {
+			$override_url .= '?wpcf7=json';
+		} else {
+			$override_url .= '&wpcf7=json';
+		}
+		
+?>
+<script type="text/javascript">
+//<![CDATA[
+
+$(document).ready(function() {
+	$('#wpcf7_the_form').ajaxForm({
+		beforeSubmit: validate,
+		url: '<?php echo $override_url; ?>',
+		dataType: 'json',
+		success: processJson,
+		clearForm: true,
+		resetForm: true
+	});
+});
+
+function validate(formData, jqForm, options) {
+	$('#wpcf7-response-output').hide().empty().removeClass('wpcf7-mail-sent-ok wpcf7-mail-sent-ng');
+	var valid = true;
+	
+	$('.wpcf7-validates-as-email', jqForm[0]).each(function() {
+		if (! isEmail(this.value)) {
+			$(this).addClass('wpcf7-email-not-valid');
+			this.wpcf7InvalidMessage = '<?php _e('Email address seems invalid.', 'wpcf7'); ?>';
+		}
+	});
+
+	$('.wpcf7-validates-as-required', jqForm[0]).each(function() {
+		if (! this.value) {
+			$(this).addClass('wpcf7-required-not-valid');
+			this.wpcf7InvalidMessage = '<?php _e('Please fill the required field.', 'wpcf7'); ?>';
+		}
+	});
+	
+	$.each(jqForm[0].elements, function() {
+		if (this.wpcf7InvalidMessage) {
+			notValidTip(this, this.wpcf7InvalidMessage);
+			valid = false;
+			this.wpcf7InvalidMessage = null;
+		}
+	});
+	
+	return valid;
+}
+
+function isEmail(user_email) {
+	var chars = /^[-a-z0-9+_.]+@([-a-z0-9_]+[.])+[a-z]{2,6}$/i;
+	return chars.test(user_email);
+}
+
+function notValidTip(input, message) {
+	$(input).after('<span class="wpcf7-not-valid-tip">' + message + '</span>');
+	$('span.wpcf7-not-valid-tip').mouseover(function() {
+		$(this).fadeOut('fast');
+	});
+	$(input).mouseover(function() {
+		$(input).siblings('.wpcf7-not-valid-tip').fadeOut('fast');
+	});
+}
+
+function processJson(data) {
+	$('#wpcf7-response-output').hide().empty().removeClass('wpcf7-mail-sent-ok wpcf7-mail-sent-ng');
+	if (1 == data.mailSent) {
+		$('#wpcf7-response-output').addClass('wpcf7-mail-sent-ok');
+	} else {
+		$('#wpcf7-response-output').addClass('wpcf7-mail-sent-ng');
+	}
+	$('#wpcf7-response-output').append(data.message).fadeIn('fast');
+}
+
+//]]>
+</script>
+<?php
+	}
+	
+	function load_js() {
+		if (is_singular())
+			wp_enqueue_script('jquery-form');
 	}
 
 /* Processing form element placeholders */
 
 	function form_elements($form, $replace = true) {
-		$regex = '%\[\s*([a-z]+[*]?)(\s+[a-zA-Z][0-9a-zA-Z:._-]*)(\s*(?:"[^"]*"|\'[^\']*\'))([-0-9a-zA-Z:_/\s]*)?(\s*(?:"[^"]*"|\'[^\']*\'))*\]%';
+		$regex = '%\[\s*([a-z]+[*]?)(\s+[a-zA-Z][0-9a-zA-Z:._-]*)(\s*(?:"[^"]*"|\'[^\']*\'))?([-0-9a-zA-Z:_/\s]*)?(\s*(?:"[^"]*"|\'[^\']*\'))*\]%';
 		if ($replace) {
 			$form = preg_replace_callback($regex, array(&$this, 'form_element_replace_callback'), $form);
 			// Submit button
@@ -309,6 +444,7 @@ class tam_contact_form_seven {
 				if ($id = $id_matches[1])
 					$atts .= ' id="' . $id . '"';
 			}
+			
 			$class_att = "";
 			$class_array = preg_grep('%^class:[-0-9a-zA-Z_]+$%', $options);
 			foreach ($class_array as $class) {
@@ -316,6 +452,12 @@ class tam_contact_form_seven {
 				if ($class = $class_matches[1])
 					$class_att .= ' ' . $class;
 			}
+			
+			if (preg_match('/^email[*]?$/', $type))
+				$class_att .= ' wpcf7-validates-as-email';
+			if (preg_match('/[*]$/', $type))
+				$class_att .= ' wpcf7-validates-as-required';
+				
 			if ($class_att)
 				$atts .= ' class="' . trim($class_att) . '"';
 		}
@@ -340,7 +482,7 @@ class tam_contact_form_seven {
 				} else {
 					$value = array_shift($values);
 				}
-				return '<input type="text" name="' . $name . '" value="' . $value . '"' . $atts . ' />';
+				return '<span style="position: relative;"><input type="text" name="' . $name . '" value="' . $value . '"' . $atts . ' /></span>';
 				break;
 			case 'textarea':
 				if (is_array($options)) {
@@ -360,7 +502,7 @@ class tam_contact_form_seven {
 				} else {
 					$value = array_shift($values);
 				}
-				return '<textarea name="' . $name . '"' . $atts . '>' . $value . '</textarea>';
+				return '<span style="position: relative;"><textarea name="' . $name . '"' . $atts . '>' . $value . '</textarea></span>';
 				break;
 		}
 	}
