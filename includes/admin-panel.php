@@ -32,7 +32,7 @@
 
 			<div class="fieldset">
 				<label for="wpcf7-title"><?php _e('Title', 'wpcf7'); ?></label>
-				<input type="text" id="wpcf7-title" name="wpcf7-title" size="40" value="<?php echo htmlspecialchars($cf['title']); ?>" onchange="update_anchor(this.value);" />
+				<input type="text" id="wpcf7-title" name="wpcf7-title" size="40" value="<?php echo htmlspecialchars($cf['title']); ?>" onchange="wpcf7UpdateAnchor(this.value);" />
 				
 				<?php if (! $initial) : ?>
 				<p class="important">
@@ -43,15 +43,16 @@
 			</div>
 
 			<div class="fieldset"><div class="legend"><?php _e('Form content', 'wpcf7'); ?></div>
-				<input type="button" value="text" class="quick-button" onclick="quick_panel('text');" />
-				<input type="button" value="text*" class="quick-button" onclick="quick_panel('text*');" />
-				<input type="button" value="email" class="quick-button" onclick="quick_panel('email');" />
-				<input type="button" value="email*" class="quick-button" onclick="quick_panel('email*');" />
-				<input type="button" value="textarea" class="quick-button" onclick="quick_panel('textarea');" />
-				<input type="button" value="textarea*" class="quick-button" onclick="quick_panel('textarea*');" />
-				<input type="button" value="submit" class="quick-button" onclick="quick_panel('submit');" />
-				<div id="quick-panel"></div>
 				<textarea id="wpcf7-form" name="wpcf7-form" cols="100" rows="16"><?php echo htmlspecialchars($cf['form']); ?></textarea>
+				<input type="button" value="text" class="quick-button" onclick="wpcf7QuickPanel('text');" style="background-color: #cee4d4;" />
+				<input type="button" value="text*" class="quick-button" onclick="wpcf7QuickPanel('text*');" style="background-color: #cee4d4;" />
+				<input type="button" value="email" class="quick-button" onclick="wpcf7QuickPanel('email');" style="background-color: #e6edb4;" />
+				<input type="button" value="email*" class="quick-button" onclick="wpcf7QuickPanel('email*');" style="background-color: #e6edb4;" />
+				<input type="button" value="textarea" class="quick-button" onclick="wpcf7QuickPanel('textarea');" style="background-color: #bfe7e5;" />
+				<input type="button" value="textarea*" class="quick-button" onclick="wpcf7QuickPanel('textarea*');" style="background-color: #bfe7e5;" />
+				<input type="button" value="select" class="quick-button" onclick="wpcf7QuickPanel('select');" style="background-color: #cbd5e8;" />
+				<input type="button" value="submit" class="quick-button" onclick="wpcf7QuickPanel('submit');" style="background-color: #e5d6c2;" />
+				<div id="quick-panel"></div>
 			</div>
 
 			<div class="fieldset"><div class="legend"><?php _e('Mail template', 'wpcf7'); ?></div>
@@ -85,14 +86,40 @@
 		<script type="text/javascript">
 			//<![CDATA[
 			
-			function quick_panel(type) {
+			function wpcf7ValidateType(type) {
+				var valid_types = /^(text[*]?|email[*]?|textarea[*]?|select|submit)$/;
+				return valid_types.test(type);
+			}
+			
+			function wpcf7QuickPanel(type) {
 				var quick_panel = document.getElementById('quick-panel');
 				if (! quick_panel) return;
 				
-				var valid_types = /^(text[*]?|email[*]?|textarea[*]?|submit)$/;
-				if (! valid_types.test(type)) return;
+				if (! wpcf7ValidateType(type)) return;
 				
-				quick_panel.innerHTML = '<div class="close" style="float: right;"><span onclick="document.getElementById(\'quick-panel\').style.display = \'none\';">X</span></div>';
+				// Style
+				switch (type) {
+					case 'text':
+					case 'text*':
+						quick_panel.style.backgroundColor = '#cee4d4';
+						break;
+					case 'email':
+					case 'email*':
+						quick_panel.style.backgroundColor = '#e6edb4';
+						break;
+					case 'textarea':
+					case 'textarea*':
+						quick_panel.style.backgroundColor = '#bfe7e5';
+						break;
+					case 'select':
+						quick_panel.style.backgroundColor = '#cbd5e8';
+						break;
+					case 'submit':
+						quick_panel.style.backgroundColor = '#e5d6c2';
+						break;
+				}
+				
+				quick_panel.innerHTML = '<div class="close" style="float: right;"><span onclick="document.getElementById(\'quick-panel\').style.display = \'none\';">&#215;</span></div>';
 				quick_panel.innerHTML += '<div style="text-align: center; font-weight: bold; color: #555;"><code>[' + type + ']</code></div>';
 				quick_panel.innerHTML += '<input type="hidden" name="qp-type" value="' + type + '" />';
 				
@@ -102,44 +129,53 @@
 					case 'email':
 					case 'email*':
 						quick_panel.innerHTML += '<table><tbody>'
-							+ '<tr><td>name= <input type="text" name="qp-name" id="qp-name" class="required" onchange="create_tag();" /></td></tr>'
-							+ '<tr><td>size= <input type="text" name="qp-size" onchange="create_tag();" /></td>'
-							+ '<td>maxlength= <input type="text" name="qp-maxlength" onchange="create_tag();" /></td></tr>'
-							+ '<tr><td>id= <input type="text" name="qp-id" onchange="create_tag();" /></td>'
-							+ '<td>class= <input type="text" name="qp-class" onchange="create_tag();" /></td></tr>'
-							+ '<td><?php _e('Default value', 'wpcf7'); ?> <input type="text" name="qp-default" onchange="create_tag();" /></td></tr>'
+							+ '<tr><th>name=</th><td><input type="text" name="qp-name" id="qp-name" class="required" value="edit-me" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th>size=</th><td><input type="text" name="qp-size" onchange="wpcf7CreateTag();" /></td>'
+							+ '<th>maxlength=</th><td><input type="text" name="qp-maxlength" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th>id=</th><td><input type="text" name="qp-id" onchange="wpcf7CreateTag();" /></td>'
+							+ '<th>class=</th><td><input type="text" name="qp-class" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th><?php _e('Default value', 'wpcf7'); ?></th><td><input type="text" name="qp-default" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '</tbody></table>';
 						break;
 					case 'textarea':
 					case 'textarea*':
 						quick_panel.innerHTML += '<table><tbody>'
-							+ '<tr><td>name= <input type="text" name="qp-name" id="qp-name" class="required" onchange="create_tag();" /></td></tr>'
-							+ '<tr><td>cols= <input type="text" name="qp-cols" onchange="create_tag();" /></td>'
-							+ '<td>rows= <input type="text" name="qp-rows" onchange="create_tag();" /></td></tr>'
-							+ '<tr><td>id= <input type="text" name="qp-id" onchange="create_tag();" /></td>'
-							+ '<td>class= <input type="text" name="qp-class" onchange="create_tag();" /></td></tr>'
-							+ '<td><?php _e('Default value', 'wpcf7'); ?> <input type="text" name="qp-default" onchange="create_tag();" /></td></tr>'
+							+ '<tr><th>name=</th><td><input type="text" name="qp-name" id="qp-name" class="required" value="edit-me" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th>cols=</th><td><input type="text" name="qp-cols" onchange="wpcf7CreateTag();" /></td>'
+							+ '<th>rows=</th><td><input type="text" name="qp-rows" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th>id=</th><td><input type="text" name="qp-id" onchange="wpcf7CreateTag();" /></td>'
+							+ '<th>class=</th><td><input type="text" name="qp-class" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th><?php _e('Default value', 'wpcf7'); ?></th><td><input type="text" name="qp-default" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '</tbody></table>';
+						break;
+					case 'select':
+						quick_panel.innerHTML += '<table><tbody>'
+							+ '<tr><th>name=</th><td><input type="text" name="qp-name" id="qp-name" class="required" value="edit-me" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th>id=</th><td><input type="text" name="qp-id" onchange="wpcf7CreateTag();" /></td>'
+							+ '<th>class=</th><td><input type="text" name="qp-class" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th><?php _e('Choices', 'wpcf7'); ?></th><td><textarea name="qp-default" onchange="wpcf7CreateTag();" rows="6"></textarea><br />'
+							+ '<span style="font-size: smaller;"><?php _e('* One choice per line.', 'wpcf7'); ?></span></td></tr>'
 							+ '</tbody></table>';
 						break;
 					case 'submit':
 						quick_panel.innerHTML += '<table><tbody>'
-							+ '<tr><td><?php _e('Label', 'wpcf7'); ?> <input type="text" name="qp-label" onchange="create_tag();" /></td></tr>'
+							+ '<tr><th><?php _e('Label', 'wpcf7'); ?></th><td><input type="text" name="qp-label" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '</tbody></table>';
 						break;
 				}
 				
 				quick_panel.innerHTML += '<div style="margin: 10px 0 0; text-align: center;">'
-					+ '<input type="text" name="qp-insert" style="width: 80%; border: none; font-family: monospace;" /> '
-					+ '<input type="button" value="<?php _e('Insert', 'wpcf7'); ?>" class="qp-button" onclick="insert_tag(this.form.elements[\'qp-insert\'].value);" />'
+					+ '<input type="text" name="qp-insert" style="width: 80%; border: none; font-family: monospace;" tabindex="32767" /> '
+					+ '<input type="button" value="<?php _e('Insert', 'wpcf7'); ?>" class="qp-button" onclick="wpcf7InsertTag(this.form.elements[\'qp-insert\'].value);" style="width: auto;" />'
 					+ '</div>';
 				quick_panel.style.display = 'block';
-				create_tag(true);
+				wpcf7CreateTag();
 				var qp_name = document.getElementById('qp-name');
 				if (qp_name)
 					qp_name.focus();
 			}
 			
-			function create_tag(initial) {
+			function wpcf7CreateTag() {
 				var form = document.getElementById('wpcf7-admin-form-element');
 				if (! form) return;
 				
@@ -150,73 +186,66 @@
 				if (! type) return;
 				
 				type = type.value;
-				var valid_types = /^(text[*]?|email[*]?|textarea[*]?|submit)$/;
-				if (! valid_types.test(type)) return;
+				if (! wpcf7ValidateType(type)) return;
 				
 				var tag = '[' + type;
 				
 				if ('submit' == type) {
 					var label = form.elements['qp-label'];
 					if (label && '' != label.value)
-						tag += ' ' + wrap_quote(label.value);
+						tag += ' ' + wpcf7WrapQuote(label.value);
 				} else {
 					var name = form.elements['qp-name'];
-					if (name && ! initial) {
+					if (name) {
 						name.value = name.value.replace(/[^0-9a-zA-Z:._-]/g, '');
 						name.value = name.value.replace(/^[^a-zA-Z]+/, '');
 						if ('' == name.value)
-							name.value = 'form_' + Math.floor(Math.random() * 1000);
+							name.value = type.replace(/[*]$/, '') + '_' + Math.floor(Math.random() * 1000);
 						tag += ' ' + name.value;
 					}
 					
-					var has_option = 0;
-					
-					if (/^(text[*]?|email[*]?)$/.test(type)) {
-					
-						var size = form.elements['qp-size'];
-						if (size)
-							size.value = integer(size.value);
-						var maxlength = form.elements['qp-maxlength'];
-						if (maxlength)
-							maxlength.value = integer(maxlength.value);
-						if (size && '' != size.value && maxlength && '' != maxlength.value) {
-							tag += ' ' + size.value + '/' + maxlength.value;
-							has_option = 1;
-						} else if (size && '' != size.value) {
-							tag += ' ' + size.value + '/';
-							has_option = 1;
-						} else if (maxlength && '' != maxlength.value) {
-							tag += ' ' + '/' + maxlength.value;
-							has_option = 1;
-						}
-					
-					} else if (/^textarea[*]?$/.test(type)) {
-					
-						var cols = form.elements['qp-cols'];
-						if (cols)
-							cols.value = integer(cols.value);
-						var rows = form.elements['qp-rows'];
-						if (rows)
-							rows.value = integer(rows.value);
-						if (cols && '' != cols.value && rows && '' != rows.value) {
-							tag += ' ' + cols.value + 'x' + rows.value;
-							has_option = 1;
-						} else if (cols && '' != cols.value) {
-							tag += ' ' + cols.value + 'x';
-							has_option = 1;
-						} else if (rows && '' != rows.value) {
-							tag += ' ' + 'x' + rows.value;
-							has_option = 1;
-						}
-					
+					switch (type) {
+						case 'text':
+						case 'text*':
+						case 'email':
+						case 'email*':
+							var size = form.elements['qp-size'];
+							if (size)
+								size.value = wpcf7Integer(size.value);
+							var maxlength = form.elements['qp-maxlength'];
+							if (maxlength)
+								maxlength.value = wpcf7Integer(maxlength.value);
+							if (size && '' != size.value && maxlength && '' != maxlength.value) {
+								tag += ' ' + size.value + '/' + maxlength.value;
+							} else if (size && '' != size.value) {
+								tag += ' ' + size.value + '/';
+							} else if (maxlength && '' != maxlength.value) {
+								tag += ' ' + '/' + maxlength.value;
+							}
+							break;
+						case 'textarea':
+						case 'textarea*':
+							var cols = form.elements['qp-cols'];
+							if (cols)
+								cols.value = wpcf7Integer(cols.value);
+							var rows = form.elements['qp-rows'];
+							if (rows)
+								rows.value = wpcf7Integer(rows.value);
+							if (cols && '' != cols.value && rows && '' != rows.value) {
+								tag += ' ' + cols.value + 'x' + rows.value;
+							} else if (cols && '' != cols.value) {
+								tag += ' ' + cols.value + 'x';
+							} else if (rows && '' != rows.value) {
+								tag += ' ' + 'x' + rows.value;
+							}
+							break;
 					}
 					
 					var id = form.elements['qp-id'];
 					if (id) {
-						id.value = cdata(id.value);
+						id.value = wpcf7Cdata(id.value);
 						if ('' != id.value) {
 							tag += ' id:' + id.value;
-							has_option = 1;
 						}
 					}
 					
@@ -224,20 +253,21 @@
 					if (klass) {
 						var klass_list = klass.value.split(' ');
 						for (var i = 0; i < klass_list.length; i++) {
-							var klass_value = cdata(klass_list[i]);
+							var klass_value = wpcf7Cdata(klass_list[i]);
 							if ('' != klass_value) {
 								tag += ' class:' + klass_value;
-								has_option = 1;
 							}
 						}
 					}
 					
 					var default_value = form.elements['qp-default'];
 					if (default_value && '' != default_value.value) {
-						if (has_option)
-							tag += ' ' + wrap_quote(default_value.value);
-						else
-							tag += ' default ' + wrap_quote(default_value.value);
+						var default_values = default_value.value.split("\n");
+						for (var i = 0; i < default_values.length; i++) {
+							default_values[i] = default_values[i].replace(/^\s+/, '').replace(/\s+$/, '');
+							if ('' != default_values[i])
+								tag += ' ' + wpcf7WrapQuote(default_values[i]);
+						}
 					}
 				}
 				
@@ -245,15 +275,15 @@
 				insert.value = tag;
 			}
 			
-			function integer(str) {
+			function wpcf7Integer(str) {
 				return str.replace(/[^0-9]/g, '');
 			}
 			
-			function cdata(str) {
+			function wpcf7Cdata(str) {
 				return str.replace(/[^-0-9a-zA-Z_]/g, '');
 			}
 			
-			function wrap_quote(str) {
+			function wpcf7WrapQuote(str) {
 				if (-1 == str.indexOf('"'))
 					return '"' + str + '"';
 				else if (-1 == str.indexOf("'"))
@@ -262,7 +292,7 @@
 					return '"' + str.replace('"', '') + '"';
 			}
 			
-			function insert_tag(tag) {
+			function wpcf7InsertTag(tag) {
 				var f = document.getElementById('wpcf7-form');
 				if (! f) return;
 				
@@ -287,7 +317,7 @@
 				}
 			}
 			
-			function update_anchor(title) {
+			function wpcf7UpdateAnchor(title) {
 				if (title == null) title = document.getElementById('wpcf7-title').value;
 				var anchor = document.getElementById('contact-form-anchor-text');
 				if (anchor) {
@@ -297,7 +327,7 @@
 				}
 			}
 
-			update_anchor();
+			wpcf7UpdateAnchor();
 			//]]>
 		</script>
 
