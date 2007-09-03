@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.3.1
+Version: 1.3.2
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -105,8 +105,7 @@ class tam_contact_form_seven {
 		$mail_subject = preg_replace_callback($regex, $callback, $contact_form['mail']['subject']);
 		$mail_sender = preg_replace_callback($regex, $callback, $contact_form['mail']['sender']);
 		$mail_body = preg_replace_callback($regex, $callback, $contact_form['mail']['body']);
-		$mail_headers = "MIME-Version: 1.0\n"
-			. "From: $mail_sender\n"
+		$mail_headers = "From: $mail_sender\n"
 			. "Content-Type: text/plain; charset=\"" . get_option('blog_charset') . "\"\n";
 		if (@wp_mail($contact_form['options']['recipient'], $mail_subject, $mail_body, $mail_headers)) {
 			return true;
@@ -379,8 +378,8 @@ class tam_contact_form_seven {
 <script type="text/javascript">
 //<![CDATA[
 
-$(document).ready(function() {
-	$('div.wpcf7 > form').ajaxForm({
+jQuery(document).ready(function() {
+	jQuery('div.wpcf7 > form').ajaxForm({
 		beforeSubmit: validate,
 		url: '<?php echo $override_url; ?>',
 		dataType: 'json',
@@ -391,26 +390,26 @@ $(document).ready(function() {
 });
 
 function validate(formData, jqForm, options) {
-	var wpcf7ResponseOutput = $('div.wpcf7-response-output', jqForm.parents('div.wpcf7')).lt(1);
+	var wpcf7ResponseOutput = jQuery('div.wpcf7-response-output', jqForm.parents('div.wpcf7')).lt(1);
 	clearResponseOutput();
-	$('img.ajax-loader', jqForm[0]).css({ visibility: 'visible' });
+	jQuery('img.ajax-loader', jqForm[0]).css({ visibility: 'visible' });
 	var valid = true;
 	
-	$('.wpcf7-validates-as-email', jqForm[0]).each(function() {
+	jQuery('.wpcf7-validates-as-email', jqForm[0]).each(function() {
 		if (! isEmail(this.value)) {
-			$(this).addClass('wpcf7-email-not-valid');
+			jQuery(this).addClass('wpcf7-email-not-valid');
 			this.wpcf7InvalidMessage = '<?php _e('Email address seems invalid.', 'wpcf7'); ?>';
 		}
 	});
 
-	$('.wpcf7-validates-as-required', jqForm[0]).each(function() {
+	jQuery('.wpcf7-validates-as-required', jqForm[0]).each(function() {
 		if (! this.value) {
-			$(this).addClass('wpcf7-required-not-valid');
+			jQuery(this).addClass('wpcf7-required-not-valid');
 			this.wpcf7InvalidMessage = '<?php _e('Please fill the required field.', 'wpcf7'); ?>';
 		}
 	});
 	
-	$.each(jqForm[0].elements, function() {
+	jQuery.each(jqForm[0].elements, function() {
 		if (this.wpcf7InvalidMessage) {
 			notValidTip(this, this.wpcf7InvalidMessage);
 			valid = false;
@@ -419,7 +418,7 @@ function validate(formData, jqForm, options) {
 	});
 	
 	if (! valid) {
-		$('img.ajax-loader', jqForm[0]).css({ visibility: 'hidden' });
+		jQuery('img.ajax-loader', jqForm[0]).css({ visibility: 'hidden' });
 		wpcf7ResponseOutput.addClass('wpcf7-validation-errors');
 		wpcf7ResponseOutput.append('<?php _e('Validation errors occurred. Please confirm the fields and submit it again.', 'wpcf7'); ?>').fadeIn('fast');
 	}
@@ -433,17 +432,17 @@ function isEmail(user_email) {
 }
 
 function notValidTip(input, message) {
-	$(input).after('<span class="wpcf7-not-valid-tip">' + message + '</span>');
-	$('span.wpcf7-not-valid-tip').mouseover(function() {
-		$(this).fadeOut('fast');
+	jQuery(input).after('<span class="wpcf7-not-valid-tip">' + message + '</span>');
+	jQuery('span.wpcf7-not-valid-tip').mouseover(function() {
+		jQuery(this).fadeOut('fast');
 	});
-	$(input).mouseover(function() {
-		$(input).siblings('.wpcf7-not-valid-tip').fadeOut('fast');
+	jQuery(input).mouseover(function() {
+		jQuery(input).siblings('.wpcf7-not-valid-tip').not(':hidden').fadeOut('fast');
 	});
 }
 
 function processJson(data) {
-	var wpcf7ResponseOutput = $(data.into);
+	var wpcf7ResponseOutput = jQuery(data.into);
 	clearResponseOutput();
 	if (1 == data.mailSent) {
 		wpcf7ResponseOutput.addClass('wpcf7-mail-sent-ok');
@@ -454,9 +453,9 @@ function processJson(data) {
 }
 
 function clearResponseOutput() {
-	$('div.wpcf7-response-output').hide().empty().removeClass('wpcf7-mail-sent-ok wpcf7-mail-sent-ng wpcf7-validation-errors');
-	$('span.wpcf7-not-valid-tip').remove();
-	$('img.ajax-loader').css({ visibility: 'hidden' });
+	jQuery('div.wpcf7-response-output').hide().empty().removeClass('wpcf7-mail-sent-ok wpcf7-mail-sent-ng wpcf7-validation-errors');
+	jQuery('span.wpcf7-not-valid-tip').remove();
+	jQuery('img.ajax-loader').css({ visibility: 'hidden' });
 }
 
 //]]>
