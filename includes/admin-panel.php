@@ -67,6 +67,16 @@
 			<div class="fieldset"><div class="legend"><?php _e('Options', 'wpcf7'); ?></div>
 				<label for="wpcf7-options-recipient"><?php _e('Recipient address:', 'wpcf7'); ?></label><br />
 				<input type="text" id="wpcf7-options-recipient" name="wpcf7-options-recipient" class="wide" size="70" value="<?php echo htmlspecialchars($cf['options']['recipient']); ?>" />
+			<?php if (function_exists('akismet_http_post') && (get_option('wordpress_api_key') || $wpcom_api_key)) : ?>
+				<br /><br /><?php $checked = ($cf['options']['akismet']) ? ' checked="checked"' : ''; ?>
+				<input type="checkbox" id="wpcf7-options-akismet" name="wpcf7-options-akismet" value="1"<?php echo $checked; ?> />
+				<label for="wpcf7-options-akismet"><?php _e('Apply Akismet spam filter', 'wpcf7'); ?></label>
+			<?php else : ?>
+				<br /><br />
+				<input type="checkbox" id="wpcf7-options-akismet" name="wpcf7-options-akismet" value="1" disabled="disabled" />
+				<label for="wpcf7-options-akismet" class="disabled"><?php _e('Apply Akismet spam filter', 'wpcf7'); ?></label>
+				<br /><span class="notice"><?php _e('Akismet plugin is not active. You need Akismet to use this feature.', 'wpcf7'); ?></span>
+			<?php endif; ?>
 			</div>
 
 			<p class="submit">
@@ -128,24 +138,42 @@
 					case 'text*':
 					case 'email':
 					case 'email*':
+						var akismet_option = '';
+						if (document.getElementById('wpcf7-admin-form-element').elements['wpcf7-options-akismet'].checked) {
+							akismet_option = '<th><?php _e('Akismet', 'wpcf7'); ?></th><td>'
+								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="author" class="inline-opt" /> <?php _e("Check this field as sender&#39;s name", 'wpcf7'); ?><br />'
+								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="author_email" class="inline-opt" /> <?php _e("Check this field as sender&#39;s email", 'wpcf7'); ?><br />'
+								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="author_url" class="inline-opt" /> <?php _e("Check this field as sender&#39;s URL", 'wpcf7'); ?><br />'
+								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="none" checked="checked" class="inline-opt" /> <?php _e("Don&#39;t check this field with Akismet", 'wpcf7'); ?></td>'
+						}
 						quick_panel.innerHTML += '<table><tbody>'
 							+ '<tr><th>name=</th><td><input type="text" name="qp-name" id="qp-name" class="required" value="edit-me" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '<tr><th>size=</th><td><input type="text" name="qp-size" onchange="wpcf7CreateTag();" /></td>'
 							+ '<th>maxlength=</th><td><input type="text" name="qp-maxlength" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '<tr><th>id=</th><td><input type="text" name="qp-id" onchange="wpcf7CreateTag();" /></td>'
 							+ '<th>class=</th><td><input type="text" name="qp-class" onchange="wpcf7CreateTag();" /></td></tr>'
-							+ '<tr><th><?php _e('Default value', 'wpcf7'); ?></th><td><input type="text" name="qp-default" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th><?php _e('Default value', 'wpcf7'); ?></th><td><input type="text" name="qp-default" onchange="wpcf7CreateTag();" /></td>'
+							+ akismet_option
+							+ '</tr>'
 							+ '</tbody></table>';
 						break;
 					case 'textarea':
 					case 'textarea*':
+						var akismet_option = '';
+						if (document.getElementById('wpcf7-admin-form-element').elements['wpcf7-options-akismet'].checked) {
+							akismet_option = '<th><?php _e('Akismet', 'wpcf7'); ?></th><td>'
+								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="content" class="inline-opt" /> <?php _e("Check this field as content", 'wpcf7'); ?><br />'
+								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="none" checked="checked" class="inline-opt" /> <?php _e("Don&#39;t check this field with Akismet", 'wpcf7'); ?></td>'
+						}
 						quick_panel.innerHTML += '<table><tbody>'
 							+ '<tr><th>name=</th><td><input type="text" name="qp-name" id="qp-name" class="required" value="edit-me" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '<tr><th>cols=</th><td><input type="text" name="qp-cols" onchange="wpcf7CreateTag();" /></td>'
 							+ '<th>rows=</th><td><input type="text" name="qp-rows" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '<tr><th>id=</th><td><input type="text" name="qp-id" onchange="wpcf7CreateTag();" /></td>'
 							+ '<th>class=</th><td><input type="text" name="qp-class" onchange="wpcf7CreateTag();" /></td></tr>'
-							+ '<tr><th><?php _e('Default value', 'wpcf7'); ?></th><td><input type="text" name="qp-default" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th><?php _e('Default value', 'wpcf7'); ?></th><td><input type="text" name="qp-default" onchange="wpcf7CreateTag();" /></td>'
+							+ akismet_option
+							+ '</tr>'
 							+ '</tbody></table>';
 						break;
 					case 'select':
@@ -256,6 +284,30 @@
 							var klass_value = wpcf7Cdata(klass_list[i]);
 							if ('' != klass_value) {
 								tag += ' class:' + klass_value;
+							}
+						}
+					}
+					
+					var akismet = form.elements['qp-akismet'];
+					if (akismet) {
+						for (var i = 0; i < akismet.length; i++) {
+							var ak = akismet[i];
+							if (ak.checked) {
+								switch (ak.value) {
+									case 'author':
+										tag += ' akismet:author';
+										break;
+									case 'author_email':
+										tag += ' akismet:author_email';
+										break;
+									case 'author_url':
+										tag += ' akismet:author_url';
+										break;
+									case 'content':
+										tag += ' akismet:content';
+										break;
+								}
+								break;
 							}
 						}
 					}

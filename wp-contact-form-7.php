@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.3.2
+Version: 1.4
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -37,7 +37,7 @@ class tam_contact_form_seven {
 		add_action('admin_head', array(&$this, 'admin_page_stylesheet'));
 		add_action('wp_head', array(&$this, 'wp_head'));
 		add_action('wp_print_scripts', array(&$this, 'load_js'));
-		add_action('init', array(&$this, 'ajax_json_echo'));
+		add_action('init', array(&$this, 'init_switch'));
 		add_filter('the_content', array(&$this, 'the_content_filter'), 9);
 		remove_filter('the_content', 'wpautop');
 		add_filter('the_content', array(&$this, 'wpautop_substitute'));
@@ -78,25 +78,30 @@ class tam_contact_form_seven {
 		
 		return $pee;
 	}
+
+	function init_switch() {
+		if ('POST' == $_SERVER['REQUEST_METHOD'] && isset($_GET['wpcf7']) && 'json' == $_GET['wpcf7'])
+			$this->ajax_json_echo();
+	}
 	
 	function ajax_json_echo() {
-		if ('POST' == $_SERVER['REQUEST_METHOD'] && isset($_GET['wpcf7']) && 'json' == $_GET['wpcf7']) {
-			if (isset($_POST['_wpcf7'])) {
-				$id = (int) $_POST['_wpcf7'];
-				$unit_tag = $_POST['_wpcf7_unit_tag'];
-				$contact_forms = $this->contact_forms();
-				if ($cf = $contact_forms[$id]) {
-					$cf = stripslashes_deep($cf);
-					$into = '#' . $unit_tag . ' div.wpcf7-response-output';
-					if ($this->mail($cf)) {
-						echo '{ mailSent: 1, message: "' . $this->message('mail_sent_ok') . '", into: "' . $into . '" }';
-					} else {
-						echo '{ mailSent: 0, message: "' . $this->message('mail_sent_ng') . '", into: "' . $into . '" }';
-					}
+		if (isset($_POST['_wpcf7'])) {
+			$id = (int) $_POST['_wpcf7'];
+			$unit_tag = $_POST['_wpcf7_unit_tag'];
+			$contact_forms = $this->contact_forms();
+			if ($cf = $contact_forms[$id]) {
+				$cf = stripslashes_deep($cf);
+				$into = '#' . $unit_tag . ' div.wpcf7-response-output';
+				if ($cf['options']['akismet'] && $this->akismet($cf)) { // Spam!
+					echo '{ mailSent: 0, message: "' . $this->message('mail_sent_ng') . '", into: "' . $into . '", spam: 1 }';
+				} elseif ($this->mail($cf)) {
+					echo '{ mailSent: 1, message: "' . $this->message('mail_sent_ok') . '", into: "' . $into . '" }';
+				} else {
+					echo '{ mailSent: 0, message: "' . $this->message('mail_sent_ng') . '", into: "' . $into . '" }';
 				}
 			}
-			exit();
 		}
+		exit();
 	}
 	
 	function mail($contact_form) {
@@ -113,7 +118,59 @@ class tam_contact_form_seven {
 			return false;
 		}
 	}
-	
+
+	function akismet($contact_form) {
+		global $akismet_api_host, $akismet_api_port;
+		
+		if (! function_exists('akismet_http_post') || ! (get_option('wordpress_api_key') || $wpcom_api_key))
+			return false;
+
+		$author = $author_email = $author_url = $content = '';
+		$fes = $this->form_elements($contact_form['form'], false);
+		foreach ($fes as $fe) {
+			if (! is_array($fe['options'])) continue;
+			
+			if (preg_grep('%^akismet:author$%', $fe['options']) && '' == $author)
+				$author = $_POST[$fe['name']];
+			if (preg_grep('%^akismet:author_email$%', $fe['options']) && '' == $author_email)
+				$author_email = $_POST[$fe['name']];
+			if (preg_grep('%^akismet:author_url$%', $fe['options']) && '' == $author_url)
+				$author_url = $_POST[$fe['name']];
+			if (preg_grep('%^akismet:content$%', $fe['options']) && '' == $content)
+				$content = $_POST[$fe['name']];
+		}
+		
+		$c['blog'] = get_option('home');
+		$c['user_ip'] = preg_replace('/[^0-9., ]/', '', $_SERVER['REMOTE_ADDR']);
+		$c['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+		$c['referrer'] = $_SERVER['HTTP_REFERER'];
+		$c['comment_type'] = 'contactform7';
+		if ('' != $author)
+			$c['comment_author'] = $author;
+		if ('' != $author_email)
+			$c['comment_author_email'] = $author_email;
+		if ('' != $author_url)
+			$c['comment_author_url'] = $author_url;
+		if ('' != $content)
+			$c['comment_content'] = $content;
+		
+		$ignore = array('HTTP_COOKIE');
+		
+		foreach ($_SERVER as $key => $value)
+			if (! in_array($key, $ignore))
+				$c["$key"] = $value;
+		
+		$query_string = '';
+		foreach ($c as $key => $data)
+			$query_string .= $key . '=' . urlencode(stripslashes($data)) . '&';
+		
+		$response = akismet_http_post($query_string, $akismet_api_host, '/1.1/comment-check', $akismet_api_port);
+		if ('true' == $response[1])
+			return true;
+		else
+			return false;
+	}
+
 	function set_initial() {
 		$wpcf7 = get_option('wpcf7');
 		if (! is_array($wpcf7))
@@ -184,9 +241,10 @@ class tam_contact_form_seven {
 			$mail_sender = trim($_POST['wpcf7-mail-sender']);
 			$mail_body = trim($_POST['wpcf7-mail-body']);
 			$options_recipient = trim($_POST['wpcf7-options-recipient']);
+			$options_akismet = (bool) $_POST['wpcf7-options-akismet'];
 			
 			$mail = array('subject' => $mail_subject, 'sender' => $mail_sender, 'body' => $mail_body);
-			$options = array('recipient' => $options_recipient);
+			$options = array('recipient' => $options_recipient, 'akismet' => $options_akismet);
 			
 			$contact_forms[$id] = compact('title', 'form', 'mail', 'options');
 			$updated_message = sprintf(__('Contact form "%s" saved. ', 'wpcf7'), $contact_forms[$id]['title']);
@@ -265,7 +323,9 @@ class tam_contact_form_seven {
 				$fes = $this->form_elements($cf['form'], false);
 				$validation = $this->validate_form_elements($fes);
 				if ($validation['valid']) {
-					if ($this->mail($cf)) {
+					if ($cf['options']['akismet'] && $this->akismet($cf)) { // Spam!
+						$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => false, 'message' => $this->message('mail_sent_ng'), 'spam' => true);
+					} elseif ($this->mail($cf)) {
 						$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => true, 'message' => $this->message('mail_sent_ok'));
 					} else {
 						$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => false, 'message' => $this->message('mail_sent_ng'));
@@ -312,10 +372,12 @@ class tam_contact_form_seven {
 		if ($this->processing_unit_tag == $_POST['_wpcf7_unit_tag']) {
 			if (isset($_POST['_wpcf7_mail_sent']) && $_POST['_wpcf7_mail_sent']['id'] == $id) {
 				if ($_POST['_wpcf7_mail_sent']['ok']) {
-					$clsss .= ' wpcf7-mail-sent-ok';
+					$class .= ' wpcf7-mail-sent-ok';
 					$content = $_POST['_wpcf7_mail_sent']['message'];
 				} else {
 					$class .= ' wpcf7-mail-sent-ng';
+					if ($_POST['_wpcf7_mail_sent']['spam'])
+						$class .= ' wpcf7-spam-blocked';
 					$content = $_POST['_wpcf7_mail_sent']['message'];
 				}
 			} elseif (isset($_POST['_wpcf7_validation_errors']) && $_POST['_wpcf7_validation_errors']['id'] == $id) {
@@ -439,6 +501,9 @@ function notValidTip(input, message) {
 	jQuery(input).mouseover(function() {
 		jQuery(input).siblings('.wpcf7-not-valid-tip').not(':hidden').fadeOut('fast');
 	});
+	jQuery(input).focus(function() {
+		jQuery(input).siblings('.wpcf7-not-valid-tip').not(':hidden').fadeOut('fast');
+	});
 }
 
 function processJson(data) {
@@ -449,11 +514,14 @@ function processJson(data) {
 	} else {
 		wpcf7ResponseOutput.addClass('wpcf7-mail-sent-ng');
 	}
+	if (1 == data.spam) {
+		wpcf7ResponseOutput.addClass('wpcf7-spam-blocked');
+	}
 	wpcf7ResponseOutput.append(data.message).fadeIn('fast');
 }
 
 function clearResponseOutput() {
-	jQuery('div.wpcf7-response-output').hide().empty().removeClass('wpcf7-mail-sent-ok wpcf7-mail-sent-ng wpcf7-validation-errors');
+	jQuery('div.wpcf7-response-output').hide().empty().removeClass('wpcf7-mail-sent-ok wpcf7-mail-sent-ng wpcf7-validation-errors wpcf7-spam-blocked');
 	jQuery('span.wpcf7-not-valid-tip').remove();
 	jQuery('img.ajax-loader').css({ visibility: 'hidden' });
 }
