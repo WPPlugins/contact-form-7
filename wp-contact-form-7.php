@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.4
+Version: 1.4.1
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -136,8 +136,10 @@ class tam_contact_form_seven {
 				$author_email = $_POST[$fe['name']];
 			if (preg_grep('%^akismet:author_url$%', $fe['options']) && '' == $author_url)
 				$author_url = $_POST[$fe['name']];
-			if (preg_grep('%^akismet:content$%', $fe['options']) && '' == $content)
-				$content = $_POST[$fe['name']];
+			
+			if ('' != $content)
+				$content .= "\n\n";
+			$content .= $_POST[$fe['name']];
 		}
 		
 		$c['blog'] = get_option('home');
@@ -145,6 +147,8 @@ class tam_contact_form_seven {
 		$c['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
 		$c['referrer'] = $_SERVER['HTTP_REFERER'];
 		$c['comment_type'] = 'contactform7';
+		if ($permalink = get_permalink())
+			$c['permalink'] = $permalink;
 		if ('' != $author)
 			$c['comment_author'] = $author;
 		if ('' != $author_email)
