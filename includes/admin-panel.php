@@ -51,6 +51,8 @@
 				<input type="button" value="textarea" class="quick-button" onclick="wpcf7QuickPanel('textarea');" style="background-color: #bfe7e5;" />
 				<input type="button" value="textarea*" class="quick-button" onclick="wpcf7QuickPanel('textarea*');" style="background-color: #bfe7e5;" />
 				<input type="button" value="select" class="quick-button" onclick="wpcf7QuickPanel('select');" style="background-color: #cbd5e8;" />
+				<input type="button" value="captchac" class="quick-button" onclick="wpcf7QuickPanel('captchac');" style="background-color: #d5e8cb;" />
+				<input type="button" value="captchar" class="quick-button" onclick="wpcf7QuickPanel('captchar');" style="background-color: #d5e8cb;" />
 				<input type="button" value="submit" class="quick-button" onclick="wpcf7QuickPanel('submit');" style="background-color: #e5d6c2;" />
 				<div id="quick-panel"></div>
 			</div>
@@ -67,16 +69,6 @@
 			<div class="fieldset"><div class="legend"><?php _e('Options', 'wpcf7'); ?></div>
 				<label for="wpcf7-options-recipient"><?php _e('Recipient address:', 'wpcf7'); ?></label><br />
 				<input type="text" id="wpcf7-options-recipient" name="wpcf7-options-recipient" class="wide" size="70" value="<?php echo htmlspecialchars($cf['options']['recipient']); ?>" />
-			<?php if (function_exists('akismet_http_post') && (get_option('wordpress_api_key') || $wpcom_api_key)) : ?>
-				<br /><br /><?php $checked = ($cf['options']['akismet']) ? ' checked="checked"' : ''; ?>
-				<input type="checkbox" id="wpcf7-options-akismet" name="wpcf7-options-akismet" value="1"<?php echo $checked; ?> />
-				<label for="wpcf7-options-akismet"><?php _e('Apply Akismet spam filter', 'wpcf7'); ?></label>
-			<?php else : ?>
-				<br /><br />
-				<input type="checkbox" id="wpcf7-options-akismet" name="wpcf7-options-akismet" value="1" disabled="disabled" />
-				<label for="wpcf7-options-akismet" class="disabled"><?php _e('Apply Akismet spam filter', 'wpcf7'); ?></label>
-				<br /><span class="notice"><?php _e('Akismet plugin is not active. You need Akismet to use this feature.', 'wpcf7'); ?></span>
-			<?php endif; ?>
 			</div>
 
 			<p class="submit">
@@ -97,7 +89,7 @@
 			//<![CDATA[
 			
 			function wpcf7ValidateType(type) {
-				var valid_types = /^(text[*]?|email[*]?|textarea[*]?|select|submit)$/;
+				var valid_types = /^(text[*]?|email[*]?|textarea[*]?|select|captcha[cr]|submit)$/;
 				return valid_types.test(type);
 			}
 			
@@ -124,6 +116,10 @@
 					case 'select':
 						quick_panel.style.backgroundColor = '#cbd5e8';
 						break;
+					case 'captchac':
+					case 'captchar':
+						quick_panel.style.backgroundColor = '#d5e8cb';
+						break;
 					case 'submit':
 						quick_panel.style.backgroundColor = '#e5d6c2';
 						break;
@@ -138,42 +134,31 @@
 					case 'text*':
 					case 'email':
 					case 'email*':
-						var akismet_option = '';
-						if (document.getElementById('wpcf7-admin-form-element').elements['wpcf7-options-akismet'].checked) {
-							akismet_option = '<th><?php _e('Akismet', 'wpcf7'); ?></th><td>'
-								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="author" class="inline-opt" /> <?php _e("Check this field as sender&#39;s name", 'wpcf7'); ?><br />'
-								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="author_email" class="inline-opt" /> <?php _e("Check this field as sender&#39;s email", 'wpcf7'); ?><br />'
-								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="author_url" class="inline-opt" /> <?php _e("Check this field as sender&#39;s URL", 'wpcf7'); ?><br />'
-								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="none" checked="checked" class="inline-opt" /> <?php _e("Don&#39;t check this field with Akismet", 'wpcf7'); ?></td>'
-						}
+						var akismet_option = '<th><?php echo js_escape(__('Akismet', 'wpcf7')); ?></th><td>'
+								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="author" class="inline-opt" /> <?php echo js_escape(__("Check this field as sender&#39;s name", 'wpcf7')); ?><br />'
+								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="author_email" class="inline-opt" /> <?php echo js_escape(__("Check this field as sender&#39;s email", 'wpcf7')); ?><br />'
+								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="author_url" class="inline-opt" /> <?php echo js_escape(__("Check this field as sender&#39;s URL", 'wpcf7')); ?><br />'
+								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="none" checked="checked" class="inline-opt" /> <?php echo js_escape(__("Don&#39;t check this field with Akismet", 'wpcf7')); ?></td>';
 						quick_panel.innerHTML += '<table><tbody>'
 							+ '<tr><th>name=</th><td><input type="text" name="qp-name" id="qp-name" class="required" value="edit-me" onchange="wpcf7CreateTag();" /></td></tr>'
-							+ '<tr><th>size=</th><td><input type="text" name="qp-size" onchange="wpcf7CreateTag();" /></td>'
-							+ '<th>maxlength=</th><td><input type="text" name="qp-maxlength" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '<tr><th>id=</th><td><input type="text" name="qp-id" onchange="wpcf7CreateTag();" /></td>'
 							+ '<th>class=</th><td><input type="text" name="qp-class" onchange="wpcf7CreateTag();" /></td></tr>'
-							+ '<tr><th><?php _e('Default value', 'wpcf7'); ?></th><td><input type="text" name="qp-default" onchange="wpcf7CreateTag();" /></td>'
+							+ '<tr><th>size=</th><td><input type="text" name="qp-size" onchange="wpcf7CreateTag();" /></td>'
+							+ '<th>maxlength=</th><td><input type="text" name="qp-maxlength" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th><?php echo js_escape(__('Default value', 'wpcf7')); ?></th><td><input type="text" name="qp-default" onchange="wpcf7CreateTag();" /></td>'
 							+ akismet_option
 							+ '</tr>'
 							+ '</tbody></table>';
 						break;
 					case 'textarea':
 					case 'textarea*':
-						var akismet_option = '';
-						if (document.getElementById('wpcf7-admin-form-element').elements['wpcf7-options-akismet'].checked) {
-							akismet_option = '<th><?php _e('Akismet', 'wpcf7'); ?></th><td>'
-								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="content" class="inline-opt" /> <?php _e("Check this field as content", 'wpcf7'); ?><br />'
-								+ '<input type="radio" name="qp-akismet" onchange="wpcf7CreateTag();" value="none" checked="checked" class="inline-opt" /> <?php _e("Don&#39;t check this field with Akismet", 'wpcf7'); ?></td>'
-						}
 						quick_panel.innerHTML += '<table><tbody>'
 							+ '<tr><th>name=</th><td><input type="text" name="qp-name" id="qp-name" class="required" value="edit-me" onchange="wpcf7CreateTag();" /></td></tr>'
-							+ '<tr><th>cols=</th><td><input type="text" name="qp-cols" onchange="wpcf7CreateTag();" /></td>'
-							+ '<th>rows=</th><td><input type="text" name="qp-rows" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '<tr><th>id=</th><td><input type="text" name="qp-id" onchange="wpcf7CreateTag();" /></td>'
 							+ '<th>class=</th><td><input type="text" name="qp-class" onchange="wpcf7CreateTag();" /></td></tr>'
-							+ '<tr><th><?php _e('Default value', 'wpcf7'); ?></th><td><input type="text" name="qp-default" onchange="wpcf7CreateTag();" /></td>'
-							+ akismet_option
-							+ '</tr>'
+							+ '<tr><th>cols=</th><td><input type="text" name="qp-cols" onchange="wpcf7CreateTag();" /></td>'
+							+ '<th>rows=</th><td><input type="text" name="qp-rows" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th><?php echo js_escape(__('Default value', 'wpcf7')); ?></th><td><input type="text" name="qp-default" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '</tbody></table>';
 						break;
 					case 'select':
@@ -181,20 +166,44 @@
 							+ '<tr><th>name=</th><td><input type="text" name="qp-name" id="qp-name" class="required" value="edit-me" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '<tr><th>id=</th><td><input type="text" name="qp-id" onchange="wpcf7CreateTag();" /></td>'
 							+ '<th>class=</th><td><input type="text" name="qp-class" onchange="wpcf7CreateTag();" /></td></tr>'
-							+ '<tr><th><?php _e('Choices', 'wpcf7'); ?></th><td><textarea name="qp-default" onchange="wpcf7CreateTag();" rows="6"></textarea><br />'
-							+ '<span style="font-size: smaller;"><?php _e('* One choice per line.', 'wpcf7'); ?></span></td></tr>'
+							+ '<tr><th><?php echo js_escape(__('Choices', 'wpcf7')); ?></th><td><textarea name="qp-default" onchange="wpcf7CreateTag();" rows="6"></textarea><br />'
+							+ '<span style="font-size: smaller;"><?php echo js_escape(__('* One choice per line.', 'wpcf7')); ?></span></td></tr>'
+							+ '</tbody></table>';
+						break;
+					case 'captchac':
+						quick_panel.innerHTML += '<table><tbody>'
+							+ '<tr><th>name=</th><td><input type="text" name="qp-name" id="qp-name" class="required" value="edit-me" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th>id=</th><td><input type="text" name="qp-id" onchange="wpcf7CreateTag();" /></td>'
+							+ '<th>class=</th><td><input type="text" name="qp-class" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th><?php echo js_escape(__('Foreground color', 'wpcf7')); ?></th><td><input type="text" name="qp-fgc" onchange="wpcf7CreateTag();" /></td>'
+							+ '<th><?php echo js_escape(__('Background color', 'wpcf7')); ?></th><td><input type="text" name="qp-bgc" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th><?php echo js_escape(__('Image size', 'wpcf7')); ?></th>'
+							+ '<td><select name="qp-isize" onchange="wpcf7CreateTag();"><option value="">--</option>'
+							+ '<option value="s"><?php echo js_escape(__('Small', 'wpcf7')); ?></option>'
+							+ '<option value="m"><?php echo js_escape(__('Medium', 'wpcf7')); ?></option>'
+							+ '<option value="l"><?php echo js_escape(__('Large', 'wpcf7')); ?></option></select></td></tr>'
+							+ '</tbody></table>';
+						break;
+					case 'captchar':
+						quick_panel.innerHTML += '<table><tbody>'
+							+ '<tr><th>name=</th><td><input type="text" name="qp-name" id="qp-name" class="required" value="edit-me" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th>id=</th><td><input type="text" name="qp-id" onchange="wpcf7CreateTag();" /></td>'
+							+ '<th>class=</th><td><input type="text" name="qp-class" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th>size=</th><td><input type="text" name="qp-size" onchange="wpcf7CreateTag();" /></td>'
+							+ '<th>maxlength=</th><td><input type="text" name="qp-maxlength" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th><?php echo js_escape(__('Default value', 'wpcf7')); ?></th><td><input type="text" name="qp-default" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '</tbody></table>';
 						break;
 					case 'submit':
 						quick_panel.innerHTML += '<table><tbody>'
-							+ '<tr><th><?php _e('Label', 'wpcf7'); ?></th><td><input type="text" name="qp-label" onchange="wpcf7CreateTag();" /></td></tr>'
+							+ '<tr><th><?php echo js_escape(__('Label', 'wpcf7')); ?></th><td><input type="text" name="qp-label" onchange="wpcf7CreateTag();" /></td></tr>'
 							+ '</tbody></table>';
 						break;
 				}
 				
 				quick_panel.innerHTML += '<div style="margin: 10px 0 0; text-align: center;">'
 					+ '<input type="text" name="qp-insert" style="width: 80%; border: none; font-family: monospace;" tabindex="32767" /> '
-					+ '<input type="button" value="<?php _e('Insert', 'wpcf7'); ?>" class="qp-button" onclick="wpcf7InsertTag(this.form.elements[\'qp-insert\'].value);" style="width: auto;" />'
+					+ '<input type="button" value="<?php echo js_escape(__('Insert', 'wpcf7')); ?>" class="qp-button" onclick="wpcf7InsertTag(this.form.elements[\'qp-insert\'].value);" style="width: auto;" />'
 					+ '</div>';
 				quick_panel.style.display = 'block';
 				wpcf7CreateTag();
@@ -237,6 +246,7 @@
 						case 'text*':
 						case 'email':
 						case 'email*':
+						case 'captchar':
 							var size = form.elements['qp-size'];
 							if (size)
 								size.value = wpcf7Integer(size.value);
@@ -303,13 +313,39 @@
 									case 'author_url':
 										tag += ' akismet:author_url';
 										break;
-									case 'content':
-										tag += ' akismet:content';
-										break;
 								}
 								break;
 							}
 						}
+					}
+					
+					var image_size = form.elements['qp-isize'];
+					if (image_size) {
+						switch (image_size.value) {
+							case 's':
+								tag += ' size:s';
+								break;
+							case 'm':
+								tag += ' size:m';
+								break;
+							case 'l':
+								tag += ' size:l';
+								break;
+						}
+					}
+					
+					var fgc = form.elements['qp-fgc'];
+					if (fgc) {
+						var fgc_v = wpcf7Cdata(fgc.value);
+						if (fgc_v)
+							tag += ' fg:#' + fgc_v;
+					}
+					
+					var bgc = form.elements['qp-bgc'];
+					if (bgc) {
+						var bgc_v = wpcf7Cdata(bgc.value);
+						if (bgc_v)
+							tag += ' bg:#' + bgc_v;
 					}
 					
 					var default_value = form.elements['qp-default'];
