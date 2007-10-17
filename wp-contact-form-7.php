@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.5
+Version: 1.6
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -35,7 +35,7 @@ class tam_contact_form_seven {
 		add_action('activate_' . strtr(plugin_basename(__FILE__), '\\', '/'), array(&$this, 'set_initial'));
 		add_action('init', array(&$this, 'load_plugin_textdomain'));
 		add_action('admin_menu', array(&$this, 'add_pages'));
-		add_action('admin_head', array(&$this, 'admin_page_stylesheet'));
+		add_action('admin_head', array(&$this, 'admin_head'));
 		add_action('wp_head', array(&$this, 'wp_head'));
 		add_action('wp_print_scripts', array(&$this, 'load_js'));
 		add_action('init', array(&$this, 'init_switch'), 11);
@@ -127,14 +127,28 @@ class tam_contact_form_seven {
 	}
 	
 	function mail($contact_form) {
+		$contact_form = $this->upgrade_160($contact_form);
 		$regex = '/\[\s*([a-zA-Z][0-9a-zA-Z:._-]*)\s*\]/';
 		$callback = create_function('$matches', 'if (isset($_POST[$matches[1]])) return stripslashes($_POST[$matches[1]]); else return $matches[0];');
 		$mail_subject = preg_replace_callback($regex, $callback, $contact_form['mail']['subject']);
 		$mail_sender = preg_replace_callback($regex, $callback, $contact_form['mail']['sender']);
 		$mail_body = preg_replace_callback($regex, $callback, $contact_form['mail']['body']);
+		$mail_recipient = preg_replace_callback($regex, $callback, $contact_form['mail']['recipient']);
 		$mail_headers = "From: $mail_sender\n"
 			. "Content-Type: text/plain; charset=\"" . get_option('blog_charset') . "\"\n";
-		if (@wp_mail($contact_form['options']['recipient'], $mail_subject, $mail_body, $mail_headers)) {
+		if (@wp_mail($mail_recipient, $mail_subject, $mail_body, $mail_headers)) {
+			
+			// Mail 2
+			if ($contact_form['mail_2']['active']) {
+				$mail_2_subject = preg_replace_callback($regex, $callback, $contact_form['mail_2']['subject']);
+				$mail_2_sender = preg_replace_callback($regex, $callback, $contact_form['mail_2']['sender']);
+				$mail_2_body = preg_replace_callback($regex, $callback, $contact_form['mail_2']['body']);
+				$mail_2_recipient = preg_replace_callback($regex, $callback, $contact_form['mail_2']['recipient']);
+				$mail_2_headers = "From: $mail_2_sender\n"
+					. "Content-Type: text/plain; charset=\"" . get_option('blog_charset') . "\"\n";
+				@wp_mail($mail_2_recipient, $mail_2_subject, $mail_2_body, $mail_2_headers);
+			}
+			
 			return true;
 		} else {
 			return false;
@@ -244,60 +258,150 @@ class tam_contact_form_seven {
 		update_option('wpcf7', $wpcf7);
 	}
 
+	function upgrade_160($contact_form) {
+		if (! isset($contact_form['mail']['recipient']))
+			$contact_form['mail']['recipient'] = $contact_form['options']['recipient'];
+		return $contact_form;
+	}
+
 /* Admin panel */
 
 	function add_pages() {
+		$base_url = get_option('siteurl') . '/wp-admin/options-general.php';
+		$page = plugin_basename(__FILE__);
+		$contact_forms = $this->contact_forms();
+		
+		if (isset($_POST['wpcf7-save'])) {
+			$id = $_POST['wpcf7-id'];
+			check_admin_referer('wpcf7-save_' . $id);
+			
+			$title = trim($_POST['wpcf7-title']);
+			$form = trim($_POST['wpcf7-form']);
+			$mail = array(
+				'subject' => trim($_POST['wpcf7-mail-subject']),
+				'sender' => trim($_POST['wpcf7-mail-sender']),
+				'body' => trim($_POST['wpcf7-mail-body']),
+				'recipient' => trim($_POST['wpcf7-mail-recipient'])
+				);
+			$mail_2 = array(
+				'active' => (1 == $_POST['wpcf7-mail-2-active']) ? true : false,
+				'subject' => trim($_POST['wpcf7-mail-2-subject']),
+				'sender' => trim($_POST['wpcf7-mail-2-sender']),
+				'body' => trim($_POST['wpcf7-mail-2-body']),
+				'recipient' => trim($_POST['wpcf7-mail-2-recipient'])
+				);
+			$options = array(
+				'recipient' => trim($_POST['wpcf7-options-recipient']) // For backward compatibility.
+				);
+			
+			if (array_key_exists($id, $contact_forms)) {
+				$contact_forms[$id] = compact('title', 'form', 'mail', 'mail_2', 'options');
+				$redirect_to = $base_url . '?page=' . $page . '&contactform=' . $id . '&message=saved';
+			} else {
+				$key = (empty($contact_forms)) ? 1 : max(array_keys($contact_forms)) + 1;
+				$contact_forms[$key] = compact('title', 'form', 'mail', 'mail_2', 'options');
+				$redirect_to = $base_url . '?page=' . $page . '&contactform=' . $key . '&message=created';
+			}
+			$this->update_contact_forms($contact_forms);
+			
+			wp_redirect($redirect_to);
+			exit();
+		} elseif (isset($_POST['wpcf7-delete'])) {
+			$id = $_POST['wpcf7-id'];
+			check_admin_referer('wpcf7-delete_' . $id);
+			
+			unset($contact_forms[$id]);
+			$this->update_contact_forms($contact_forms);
+			
+			wp_redirect($base_url . '?page=' . $page . '&message=deleted');
+			exit();
+		}
+	
 		add_options_page(__('Contact Form 7', 'wpcf7'), __('Contact Form 7', 'wpcf7'), 'manage_options', __FILE__, array(&$this, 'option_page'));
 	}
 	
-	function admin_page_stylesheet() {
+	function admin_head() {
 		global $plugin_page;
 		
 		if (isset($plugin_page) && $plugin_page == plugin_basename(__FILE__)) {
 			$admin_stylesheet_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/admin-stylesheet.css';
 			echo '<link rel="stylesheet" href="' . $admin_stylesheet_url . '" type="text/css" />';
+			
+			$javascript_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/wpcf7-admin.js';
+?>
+<script type="text/javascript">
+//<![CDATA[
+var _wpcf7 = {
+	l10n: {
+		optional: "<?php echo js_escape(__('optional', 'wpcf7')); ?>",
+		generateTag: "<?php echo js_escape(__('Generate Tag', 'wpcf7')); ?>",
+		textField: "<?php echo js_escape(__('Text field', 'wpcf7')); ?>",
+		emailField: "<?php echo js_escape(__('Email field', 'wpcf7')); ?>",
+		textArea: "<?php echo js_escape(__('Text area', 'wpcf7')); ?>",
+		menu: "<?php echo js_escape(__('Drop-down menu', 'wpcf7')); ?>",
+		captcha: "<?php echo js_escape(__('CAPTCHA', 'wpcf7')); ?>",
+		submit: "<?php echo js_escape(__('Submit button', 'wpcf7')); ?>",
+		tagName: "<?php echo js_escape(__('Name', 'wpcf7')); ?>",
+		isRequiredField: "<?php echo js_escape(__('Required field?', 'wpcf7')); ?>",
+		menuChoices: "<?php echo js_escape(__('Choices', 'wpcf7')); ?>",
+		label: "<?php echo js_escape(__('Label', 'wpcf7')); ?>",
+		defaultValue: "<?php echo js_escape(__('Default value', 'wpcf7')); ?>",
+		akismet: "<?php echo js_escape(__('Akismet', 'wpcf7')); ?>",
+		akismetAuthor: "<?php echo js_escape(__("This field requires author's name", 'wpcf7')); ?>",
+		akismetAuthorUrl: "<?php echo js_escape(__("This field requires author's URL", 'wpcf7')); ?>",
+		akismetAuthorEmail: "<?php echo js_escape(__("This field requires author's email address", 'wpcf7')); ?>",
+		generatedTag: "<?php echo js_escape(__("Copy and paste this code into the form", 'wpcf7')); ?>",
+		fgColor: "<?php echo js_escape(__("Foreground color", 'wpcf7')); ?>",
+		bgColor: "<?php echo js_escape(__("Background color", 'wpcf7')); ?>",
+		imageSize: "<?php echo js_escape(__("Image size", 'wpcf7')); ?>",
+		imageSizeSmall: "<?php echo js_escape(__("Small", 'wpcf7')); ?>",
+		imageSizeMedium: "<?php echo js_escape(__("Medium", 'wpcf7')); ?>",
+		imageSizeLarge: "<?php echo js_escape(__("Large", 'wpcf7')); ?>",
+		imageSettings: "<?php echo js_escape(__("Image settings", 'wpcf7')); ?>",
+		inputFieldSettings: "<?php echo js_escape(__("Input field settings", 'wpcf7')); ?>",
+		tagForImage: "<?php echo js_escape(__("For image", 'wpcf7')); ?>",
+		tagForInputField: "<?php echo js_escape(__("For input field", 'wpcf7')); ?>",
+		oneChoicePerLine: "<?php echo js_escape(__("* One choice per line.", 'wpcf7')); ?>"
+	}
+};
+//]]>
+</script>
+<script type='text/javascript' src='<?php echo $javascript_url; ?>'></script>
+<?php
 		}
 	}
 	
 	function option_page() {
-		$base_url = $_SERVER['PHP_SELF'] . '?page=' . plugin_basename(__FILE__);
+		$base_url = get_option('siteurl') . '/wp-admin/options-general.php';
+		$page = plugin_basename(__FILE__);
 		$contact_forms = $this->contact_forms();
 		
 		$id = $_POST['wpcf7-id'];
 		
-		if (isset($_POST['wpcf7-delete'])) {
-			check_admin_referer('wpcf7-delete_' . $id);
-			$updated_message = sprintf(__('Contact form "%s" deleted. ', 'wpcf7'), $contact_forms[$id]['title']);
-			unset($contact_forms[$id]);
-			$this->update_contact_forms($contact_forms);
-		} elseif (isset($_POST['wpcf7-save'])) {
-			check_admin_referer('wpcf7-save_' . $id);
-			$title = trim($_POST['wpcf7-title']);
-			$form = trim($_POST['wpcf7-form']);
-			$mail_subject = trim($_POST['wpcf7-mail-subject']);
-			$mail_sender = trim($_POST['wpcf7-mail-sender']);
-			$mail_body = trim($_POST['wpcf7-mail-body']);
-			$options_recipient = trim($_POST['wpcf7-options-recipient']);
-			
-			$mail = array('subject' => $mail_subject, 'sender' => $mail_sender, 'body' => $mail_body);
-			$options = array('recipient' => $options_recipient);
-			
-			$contact_forms[$id] = compact('title', 'form', 'mail', 'options');
-			$updated_message = sprintf(__('Contact form "%s" saved. ', 'wpcf7'), $contact_forms[$id]['title']);
-			$this->update_contact_forms($contact_forms);
+		switch ($_GET['message']) {
+			case 'created':
+				$updated_message = __('Contact form created.', 'wpcf7');
+				break;
+			case 'saved':
+				$updated_message = __('Contact form saved.', 'wpcf7');
+				break;
+			case 'deleted':
+				$updated_message = __('Contact form deleted.', 'wpcf7');
+				break;
 		}
-
-		if ('new' == $_GET['contactform'] || 0 == count($contact_forms)) {
-			$initial = true;
-			$contact_forms[] = array();
-			$current = max(array_keys($contact_forms));
-			$contact_forms[$current] = $this->default_pack(__('Contact form', 'wpcf7') . ' ' . $current, true);
-		} else {
+		
+		if ('new' == $_GET['contactform']) {
+			$unsaved = true;
+			$current = -1;
+			$cf = $this->default_pack(__('Untitled', 'wpcf7'), true);
+		} elseif (array_key_exists($_GET['contactform'], $contact_forms)) {
 			$current = (int) $_GET['contactform'];
-			if (! array_key_exists($current, $contact_forms))
-				$current = min(array_keys($contact_forms));
+			$cf = stripslashes_deep($contact_forms[$current]);
+			$cf = $this->upgrade_160($cf);
+		} else {
+			$cf = null;
 		}
-
+		
 		include 'includes/admin-panel.php';
 	}
 
@@ -305,6 +409,7 @@ class tam_contact_form_seven {
 		$cf = array('title' => $title,
 			'form' => $this->default_form_template(),
 			'mail' => $this->default_mail_template(),
+			'mail_2' => $this->default_mail_2_template(),
 			'options' => $this->default_options_template());
 		if ($initial)
 			$cf['initial'] = true;
@@ -328,11 +433,21 @@ class tam_contact_form_seven {
 		$subject = '[your-subject]';
 		$sender = '[your-name] <[your-email]>';
 		$body = '[your-message]';
-		return compact('subject', 'sender', 'body');
+		$recipient = get_option('admin_email');
+		return compact('subject', 'sender', 'body', 'recipient');
+	}
+
+	function default_mail_2_template() {
+		$active = false;
+		$subject = '[your-subject]';
+		$sender = '[your-name] <[your-email]>';
+		$body = '[your-message]';
+		$recipient = '[your-email]';
+		return compact('active', 'subject', 'sender', 'body', 'recipient');
 	}
 
 	function default_options_template() {
-		$recipient = get_option('admin_email');
+		$recipient = get_option('admin_email'); // For backward compatibility.
 		return compact('recipient');
 	}
 	
@@ -511,13 +626,18 @@ class tam_contact_form_seven {
 		
 ?>
 <script type="text/javascript">
+//<![CDATA[
 var _wpcf7 = { ajaxUrl: '<?php echo $override_url; ?>' };
+//]]>
 </script>
 <script type='text/javascript' src='<?php echo $javascript_url; ?>'></script>
 <?php
 	}
 	
 	function load_js() {
+		global $pagenow;
+		if (is_admin() && 'options-general.php' == $pagenow && plugin_basename(__FILE__) == $_GET['page'])
+			wp_enqueue_script('jquery');
 		if (! is_admin())
 			wp_enqueue_script('jquery-form', '/wp-includes/js/jquery/jquery.form.js', array('jquery'), '1.0.3');
 	}

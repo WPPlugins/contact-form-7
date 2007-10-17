@@ -3,7 +3,7 @@ Contributors: takayukister
 Tags: contact form, email, ajax
 Requires at least: 2.2
 Tested up to: 2.3
-Stable tag: 1.5
+Stable tag: 1.6
 
 Just another contact form plugin. Simple but flexible.
 
@@ -32,6 +32,7 @@ Contact Form 7 has been translated into the following languages.
 
 * Brazilian Portuguese, by [Leonardo Pinheiro](http://www.eletrikabarbarella.com.br/)
 * Catalan, by [Jordi Sancho](http://www.qasolutions.net/blog)
+* Dutch, by [Chris Devriese](http://www.100it.be/)
 * French, by [Jillij](http://www.jillij.com/)
 * German, by [Marcel Spitau](http://blog.spitau.de)
 * Italian, by [Bruno](http://www.brunosalzano.com)
