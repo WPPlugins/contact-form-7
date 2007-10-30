@@ -1,9 +1,10 @@
 === Contact Form 7 ===
 Contributors: takayukister
-Tags: contact form, email, ajax
+Donate link: http://takayukister.chipin.com/contact-form-7
+Tags: contact form, email, ajax, captcha, akismet
 Requires at least: 2.2
-Tested up to: 2.3
-Stable tag: 1.6
+Tested up to: 2.4-bleeding
+Stable tag: 1.6.1
 
 Just another contact form plugin. Simple but flexible.
 
@@ -37,9 +38,11 @@ Contact Form 7 has been translated into the following languages.
 * German, by [Marcel Spitau](http://blog.spitau.de)
 * Italian, by [Bruno](http://www.brunosalzano.com)
 * Japanese, by [Takayuki Miyoshi](http://ideasilo.wordpress.com) (plugin author)
+* Norwegian, by Kjetil M. Bergem
 * Polish, by [Zbigniew Czernik](http://zibik.jogger.pl/)
 * Russian, by [Dmitry Volotovich](http://www.volnov.com)
 * Spanish, by [Jordi Sancho](http://www.qasolutions.net/blog)
+* Turkish, by [Roman Neumuller](http://katpatuka.wordpress.com)
 
 These language files are included in the plugin.
 

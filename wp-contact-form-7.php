@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.6
+Version: 1.6.1
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -40,6 +40,7 @@ class tam_contact_form_seven {
 		add_action('wp_print_scripts', array(&$this, 'load_js'));
 		add_action('init', array(&$this, 'init_switch'), 11);
 		add_filter('the_content', array(&$this, 'the_content_filter'), 9);
+		add_filter('widget_text', array(&$this, 'widget_text_filter'));
 		remove_filter('the_content', 'wpautop');
 		add_filter('the_content', array(&$this, 'wpautop_substitute'));
 	}
@@ -84,6 +85,9 @@ class tam_contact_form_seven {
 		if ('POST' == $_SERVER['REQUEST_METHOD'] && isset($_GET['wpcf7']) && 'json' == $_GET['wpcf7']) {
 			$this->ajax_json_echo();
 			exit();
+		} elseif (! is_admin()) {
+			$this->process_nonajax_submitting();
+			$this->cleanup_captcha_files();
 		}
 	}
 	
@@ -107,6 +111,8 @@ class tam_contact_form_seven {
 					$captcha = 'null';
 				}
 				
+				@header('Content-Type: text/plain; charset=' . get_option('blog_charset'));
+				
 				if (! $validation['valid']) { // Validation error occured
 					$invalids = array();
 					foreach ($validation['reason'] as $name => $reason) {
@@ -123,7 +129,6 @@ class tam_contact_form_seven {
 				}
 			}
 		}
-		$this->cleanup_captcha_files();
 	}
 	
 	function mail($contact_form) {
@@ -468,37 +473,54 @@ var _wpcf7 = {
 		}
 	}
 
-/* Post content filtering */
-
-	var $order_in_post; // Which contact form unit now you are processing. Integer value used in $unit_tag.
-	
-	function the_content_filter($content) {
-		// Form submitted?
-		if (isset($_POST['_wpcf7'])) {
-			$id = (int) $_POST['_wpcf7'];
-			$contact_forms = $this->contact_forms();
-			if ($cf = $contact_forms[$id]) {
-				$cf = stripslashes_deep($cf);
-				$validation = $this->validate($cf);
-				if (! $validation['valid']) {
-					$_POST['_wpcf7_validation_errors'] = array('id' => $id, 'messages' => $validation['reason']);
-				} elseif ($this->akismet($cf)) { // Spam!
-					$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => false, 'message' => $this->message('mail_sent_ng'), 'spam' => true);
-				} elseif ($this->mail($cf)) {
-					$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => true, 'message' => $this->message('mail_sent_ok'));
-				} else {
-					$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => false, 'message' => $this->message('mail_sent_ng'));
-				}
+	function process_nonajax_submitting() {
+		if (! isset($_POST['_wpcf7']))
+			return;
+		
+		$id = (int) $_POST['_wpcf7'];
+		$contact_forms = $this->contact_forms();
+		if ($cf = $contact_forms[$id]) {
+			$cf = stripslashes_deep($cf);
+			$validation = $this->validate($cf);
+			if (! $validation['valid']) {
+				$_POST['_wpcf7_validation_errors'] = array('id' => $id, 'messages' => $validation['reason']);
+			} elseif ($this->akismet($cf)) { // Spam!
+				$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => false, 'message' => $this->message('mail_sent_ng'), 'spam' => true);
+			} elseif ($this->mail($cf)) {
+				$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => true, 'message' => $this->message('mail_sent_ok'));
+			} else {
+				$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => false, 'message' => $this->message('mail_sent_ng'));
 			}
 		}
-		
-		$this->order_in_post = 1;
+	}
+
+/* Post content filtering */
+
+	var $processing_unit_tag;
+	var $processing_within;
+	var $unit_count;
+	var $widget_count;
+	
+	function the_content_filter($content) {
+		$this->processing_within = 'p' . get_the_ID();
+		$this->unit_count = 0;
 
 		$regex = '/\[\s*contact-form\s+(\d+)(?:\s+.*?)?\s*\]/';
 		return preg_replace_callback($regex, array(&$this, 'the_content_filter_callback'), $content);
+		
+		$this->processing_within = null;
 	}
 	
-	var $processing_unit_tag;
+	function widget_text_filter($content) {
+		$this->widget_count += 1;
+		$this->processing_within = 'w' . $this->widget_count;
+		$this->unit_count = 0;
+
+		$regex = '/\[\s*contact-form\s+(\d+)(?:\s+.*?)?\s*\]/';
+		return preg_replace_callback($regex, array(&$this, 'the_content_filter_callback'), $content);
+		
+		$this->processing_within = null;
+	}
 	
 	function the_content_filter_callback($matches) {
 		$contact_forms = $this->contact_forms();
@@ -508,7 +530,8 @@ var _wpcf7 = {
 		
 		$cf = stripslashes_deep($cf);
 
-		$unit_tag = 'wpcf7-f' . $id . '-p' . get_the_ID() . '-o' . $this->order_in_post;
+		$this->unit_count += 1;
+		$unit_tag = 'wpcf7-f' . $id . '-' . $this->processing_within . '-o' . $this->unit_count;
 		$this->processing_unit_tag = $unit_tag;
 
 		$form = '<div class="wpcf7" id="' . $unit_tag . '">';
@@ -548,9 +571,6 @@ var _wpcf7 = {
 		
 		$form .= '</div>';
 		
-		$this->cleanup_captcha_files();
-		
-		$this->order_in_post += 1;
 		$this->processing_unit_tag = null;
 		return $form;
 	}
