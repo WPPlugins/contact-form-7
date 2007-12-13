@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.7.1
+Version: 1.7.2
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -284,7 +284,7 @@ class tam_contact_form_seven {
 
 	function add_pages() {
 		$base_url = get_option('siteurl') . '/wp-admin/options-general.php';
-		$page = plugin_basename(__FILE__);
+		$page = str_replace('\\', '%5C', plugin_basename(__FILE__));
 		$contact_forms = $this->contact_forms();
 		
 		if (isset($_POST['wpcf7-save'])) {
@@ -421,7 +421,7 @@ var _wpcf7 = {
 			$cf = null;
 		}
 		
-		include 'includes/admin-panel.php';
+		require_once ABSPATH . PLUGINDIR . '/contact-form-7/includes/admin-panel.php';
 	}
 
 	function default_pack($title, $initial = false) {
@@ -628,7 +628,7 @@ var _wpcf7 = {
 				if ('*' == substr($type, -1) && empty($_POST[$name])) {
 					$valid = false;
 					$reason[$name] = $this->message('invalid_required');
-				} elseif (! is_email($_POST[$name])) {
+				} elseif (! empty($_POST[$name]) && ! is_email($_POST[$name])) {
 					$valid = false;
 					$reason[$name] = $this->message('invalid_email');
 				}
@@ -688,7 +688,7 @@ var _wpcf7 = { ajaxUrl: '<?php echo $override_url; ?>' };
 	
 	function load_js() {
 		global $pagenow;
-		if (is_admin() && 'options-general.php' == $pagenow && plugin_basename(__FILE__) == $_GET['page'])
+        if (is_admin() && 'options-general.php' == $pagenow && false !== strpos($_GET['page'], 'contact-form-7'))
 			wp_enqueue_script('jquery');
 		if (! is_admin())
 			wp_enqueue_script('jquery-form', '/wp-includes/js/jquery/jquery.form.js', array('jquery'), '1.0.3');
