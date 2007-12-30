@@ -4,7 +4,7 @@ Donate link: http://takayukister.chipin.com/contact-form-7
 Tags: contact form, email, ajax, captcha, akismet
 Requires at least: 2.2
 Tested up to: 2.4-bleeding
-Stable tag: 1.7.2
+Stable tag: 1.7.4
 
 Just another contact form plugin. Simple but flexible.
 
@@ -22,6 +22,8 @@ Just another contact form plugin. Simple but flexible.
 
 1. Upload whole `contact-form-7` folder to the `/wp-content/plugins/` directory
 1. Activate the plugin through the 'Plugins' menu in WordPress
+
+See also: [plugin homepage](http://ideasilo.wordpress.com/2007/04/30/contact-form-7/)
 
 == Frequently Asked Questions ==
 

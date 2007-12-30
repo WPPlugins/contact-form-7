@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.7.2
+Version: 1.7.4
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -361,7 +361,8 @@ var _wpcf7 = {
 		submit: "<?php echo js_escape(__('Submit button', 'wpcf7')); ?>",
 		tagName: "<?php echo js_escape(__('Name', 'wpcf7')); ?>",
 		isRequiredField: "<?php echo js_escape(__('Required field?', 'wpcf7')); ?>",
-		allowsMultipleSelections: "<?php echo js_escape(__('Allows multiple selections?', 'wpcf7')); ?>",
+		allowsMultipleSelections: "<?php echo js_escape(__('Allow multiple selections?', 'wpcf7')); ?>",
+		makeCheckboxesExclusive: "<?php echo js_escape(__('Make checkboxes exclusive?', 'wpcf7')); ?>",
 		menuChoices: "<?php echo js_escape(__('Choices', 'wpcf7')); ?>",
 		label: "<?php echo js_escape(__('Label', 'wpcf7')); ?>",
 		defaultValue: "<?php echo js_escape(__('Default value', 'wpcf7')); ?>",
@@ -604,15 +605,14 @@ var _wpcf7 = {
                 $_POST[$name] = trim(strtr($_POST[$name], "\n", " "));
             
 			if (preg_match('/^(?:select|checkbox|radio)$/', $type)) {
-                if (! in_array($_POST[$name], $values)) //  Not in given choices.
-                    $_POST[$name] = '';
-            }
-            
-            if (preg_match('/^(?:select|checkbox)[+]$/', $type)) {
-                $_POST[$name] = (array) $_POST[$name];
-                foreach ($_POST[$name] as $key => $value) {
-                    if (! in_array($value, $values)) // Not in given choices.
-                        unset($_POST[$name][$key]);
+                if (is_array($_POST[$name])) {
+                    foreach ($_POST[$name] as $key => $value) {
+                        if (! in_array($value, $values)) // Not in given choices.
+                            unset($_POST[$name][$key]);
+                    }
+                } else {
+                    if (! in_array($_POST[$name], $values)) //  Not in given choices.
+                        $_POST[$name] = '';
                 }
             }
             
@@ -697,7 +697,7 @@ var _wpcf7 = { ajaxUrl: '<?php echo $override_url; ?>' };
 /* Processing form element placeholders */
 
 	function form_elements($form, $replace = true) {
-		$types = 'text[*]?|email[*]?|textarea[*]?|select[+]?|checkbox[+]?|radio|captchac|captchar';
+		$types = 'text[*]?|email[*]?|textarea[*]?|select|checkbox|radio|captchac|captchar';
 		$regex = '%\[\s*(' . $types . ')(\s+[a-zA-Z][0-9a-zA-Z:._-]*)([-0-9a-zA-Z:#_/\s]*)?((?:\s*(?:"[^"]*"|\'[^\']*\'))*)?\s*\]%';
 		$submit_regex = '/\[\s*submit(\s+(?:"[^"]*"|\'[^\']*\'))?\s*\]/';
 		if ($replace) {
@@ -751,9 +751,6 @@ var _wpcf7 = { ajaxUrl: '<?php echo $override_url; ?>' };
         if ('checkbox' == $type)
             $class_att .= ' wpcf7-checkbox';
         
-        if ('checkbox+' == $type)
-            $class_att .= ' wpcf7-checkbox-plus';
-        
         if ('radio' == $type)
             $class_att .= ' wpcf7-radio';
         
@@ -774,6 +771,13 @@ var _wpcf7 = { ajaxUrl: '<?php echo $override_url; ?>' };
 		} else {
 			$value = $values[0];
 		}
+        
+        // Default selected/checked for select/checkbox/radio
+        if (preg_match('/^(?:select|checkbox|radio)$/', $type)) {
+            $scr_defaults = array_values(preg_grep('/^default:/', $options));
+            preg_match('/^default:([0-9_]+)$/', $scr_defaults[0], $scr_default_matches);
+            $scr_default = explode('_', $scr_default_matches[1]);
+        }
 		
 		switch ($type) {
 			case 'text':
@@ -812,19 +816,20 @@ var _wpcf7 = { ajaxUrl: '<?php echo $override_url; ?>' };
 				return $html;
 				break;
 			case 'select':
-			case 'select+':
-                $multiple = ('select+' == $type) ? true : false;
-				if (empty($values))
+                $multiple = (preg_grep('%^multiple$%', $options)) ? true : false;
+				if ($empty_select = empty($values))
 					array_push($values, '---');
 				$html = '';
-				foreach ($values as $value) {
+                foreach ($values as $key => $value) {
                     $selected = '';
+                    if (! $empty_select && in_array($key + 1, $scr_default))
+                        $selected = ' selected="selected"';
                     if ($this->processing_unit_tag == $_POST['_wpcf7_unit_tag'] && (
                             $multiple && in_array($value, $_POST[$name]) ||
                             ! $multiple && $_POST[$name] == $value))
                         $selected = ' selected="selected"';
 					$html .= '<option value="' . attribute_escape($value) . '"' . $selected . '>' . $value . '</option>';
-				}
+                }
                 
                 if ($multiple)
                     $atts .= ' multiple="multiple"';
@@ -834,23 +839,28 @@ var _wpcf7 = { ajaxUrl: '<?php echo $override_url; ?>' };
 				return $html;
 				break;
             case 'checkbox':
-            case 'checkbox+':
             case 'radio':
-                $multiple = ('checkbox+' == $type) ? true : false;
-                $input_type = preg_replace('/[+]$/', '', $type);
+                $multiple = ('checkbox' == $type && ! preg_grep('%^exclusive$%', $options)) ? true : false;
                 $html = '';
                 
-                if ('checkbox' == $type)
+                if ('checkbox' == $type && ! $multiple)
                     $input_class = ' class="exclusive"';
                 
-                foreach ($values as $value) {
+                foreach ($values as $key => $value) {
                     $checked = '';
+                    if (in_array($key + 1, $scr_default))
+                        $checked = ' checked="checked"';
                     if ($this->processing_unit_tag == $_POST['_wpcf7_unit_tag'] && (
                             $multiple && in_array($value, $_POST[$name]) ||
                             ! $multiple && $_POST[$name] == $value))
                         $checked = ' checked="checked"';
-                    $item = '<input type="' . $input_type . '" name="' . $name . ($multiple ? '[]' : '') . '" value="' . attribute_escape($value) . '"' . $checked . $input_class . ' />';
-                    $item .= '&nbsp;<span class="wpcf7-list-item-label">' . $value . '</span>';
+                    if (preg_grep('%^label[_-]?first$%', $options)) { // put label first, input last
+                        $item = '<span class="wpcf7-list-item-label">' . $value . '</span>&nbsp;';
+                        $item .= '<input type="' . $type . '" name="' . $name . ($multiple ? '[]' : '') . '" value="' . attribute_escape($value) . '"' . $checked . $input_class . ' />';
+                    } else {
+                        $item = '<input type="' . $type . '" name="' . $name . ($multiple ? '[]' : '') . '" value="' . attribute_escape($value) . '"' . $checked . $input_class . ' />';
+                        $item .= '&nbsp;<span class="wpcf7-list-item-label">' . $value . '</span>';
+                    }
                     $item = '<span class="wpcf7-list-item">' . $item . '</span>';
                     $html .= $item;
                 }
