@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.7.4
+Version: 1.7.5
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -41,8 +41,8 @@ class tam_contact_form_seven {
 		add_action('init', array(&$this, 'init_switch'), 11);
 		add_filter('the_content', array(&$this, 'the_content_filter'), 9);
 		add_filter('widget_text', array(&$this, 'widget_text_filter'));
-		remove_filter('the_content', 'wpautop');
-		add_filter('the_content', array(&$this, 'wpautop_substitute'));
+		if (remove_filter('the_content', 'wpautop'))
+            add_filter('the_content', array(&$this, 'wpautop_substitute'));
 	}
 	
 	// Original wpautop function has harmful effect on formatting of form elements.
@@ -82,7 +82,7 @@ class tam_contact_form_seven {
 	}
 
 	function init_switch() {
-		if ('POST' == $_SERVER['REQUEST_METHOD'] && isset($_GET['wpcf7']) && 'json' == $_GET['wpcf7']) {
+		if ('POST' == $_SERVER['REQUEST_METHOD'] && $_POST['_wpcf7_is_ajax_call']) {
 			$this->ajax_json_echo();
 			exit();
 		} elseif (! is_admin()) {
@@ -362,6 +362,7 @@ var _wpcf7 = {
 		tagName: "<?php echo js_escape(__('Name', 'wpcf7')); ?>",
 		isRequiredField: "<?php echo js_escape(__('Required field?', 'wpcf7')); ?>",
 		allowsMultipleSelections: "<?php echo js_escape(__('Allow multiple selections?', 'wpcf7')); ?>",
+		insertFirstBlankOption: "<?php echo js_escape(__('Insert a blank item as the first option?', 'wpcf7')); ?>",
 		makeCheckboxesExclusive: "<?php echo js_escape(__('Make checkboxes exclusive?', 'wpcf7')); ?>",
 		menuChoices: "<?php echo js_escape(__('Choices', 'wpcf7')); ?>",
 		label: "<?php echo js_escape(__('Label', 'wpcf7')); ?>",
@@ -669,19 +670,7 @@ var _wpcf7 = {
 		echo '<link rel="stylesheet" href="' . $stylesheet_url . '" type="text/css" />';
 		
 		$javascript_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/contact-form-7.js';
-		
-		$url = parse_url($_SERVER['REQUEST_URI']);
-		if (empty($url['query']))
-			$override_url = $url['path'] . '?wpcf7=json';
-		else
-			$override_url = $url['path'] . '?' . $url['query'] . '&wpcf7=json';
-		
 ?>
-<script type="text/javascript">
-//<![CDATA[
-var _wpcf7 = { ajaxUrl: '<?php echo $override_url; ?>' };
-//]]>
-</script>
 <script type='text/javascript' src='<?php echo $javascript_url; ?>'></script>
 <?php
 	}
@@ -817,8 +806,11 @@ var _wpcf7 = { ajaxUrl: '<?php echo $override_url; ?>' };
 				break;
 			case 'select':
                 $multiple = (preg_grep('%^multiple$%', $options)) ? true : false;
-				if ($empty_select = empty($values))
-					array_push($values, '---');
+                $include_blank = preg_grep('%^include_blank$%', $options);
+                
+				if ($empty_select = empty($values) || $include_blank)
+					array_unshift($values, '---');
+                
 				$html = '';
                 foreach ($values as $key => $value) {
                     $selected = '';
