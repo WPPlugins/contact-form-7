@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.7.5
+Version: 1.7.6
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -120,6 +120,8 @@ class tam_contact_form_seven {
 					}
 					$invalids = '[' . join(', ', $invalids) . ']';
 					echo '{ mailSent: 0, message: "' . js_escape($this->message('validation_error')) . '", into: "#' . $unit_tag . '", invalids: ' . $invalids . ', captcha: ' . $captcha . ' }';
+                } elseif (! $this->acceptance($cf)) { // Not accepted terms
+                    echo '{ mailSent: 0, message: "' . js_escape($this->message('accept_terms')) . '", into: "#' . $unit_tag . '", captcha: ' . $captcha . ' }';
 				} elseif ($this->akismet($cf)) { // Spam!
 					echo '{ mailSent: 0, message: "' . js_escape($this->message('mail_sent_ng')) . '", into: "#' . $unit_tag . '", spam: 1, captcha: ' . $captcha . ' }';
 				} elseif ($this->mail($cf)) {
@@ -237,6 +239,24 @@ class tam_contact_form_seven {
 		else
 			return false;
 	}
+
+    function acceptance($contact_form) {
+        $fes = $this->form_elements($contact_form['form'], false);
+		
+        $accepted = true;
+        
+		foreach ($fes as $fe) {
+            if ('acceptance' != $fe['type'])
+                continue;
+            
+            $invert = (bool) preg_grep('%^invert$%', $fe['options']);
+            
+            if ($invert && $_POST[$fe['name']] || ! $invert && ! $_POST[$fe['name']])
+                $accepted = false;
+        }
+        
+        return $accepted;
+    }
 
 	function set_initial() {
 		$wpcf7 = get_option('wpcf7');
@@ -357,6 +377,10 @@ var _wpcf7 = {
 		menu: "<?php echo js_escape(__('Drop-down menu', 'wpcf7')); ?>",
 		checkboxes: "<?php echo js_escape(__('Checkboxes', 'wpcf7')); ?>",
 		radioButtons: "<?php echo js_escape(__('Radio buttons', 'wpcf7')); ?>",
+		acceptance: "<?php echo js_escape(__('Acceptance', 'wpcf7')); ?>",
+		isAcceptanceDefaultOn: "<?php echo js_escape(__("Make this checkbox checked by default?", 'wpcf7')); ?>",
+		isAcceptanceInvert: "<?php echo js_escape(__("Make this checkbox work inversely?", 'wpcf7')); ?>",
+		isAcceptanceInvertMeans: "<?php echo js_escape(__("* That means visitor who accepts the term unchecks it.", 'wpcf7')); ?>",
 		captcha: "<?php echo js_escape(__('CAPTCHA', 'wpcf7')); ?>",
 		submit: "<?php echo js_escape(__('Submit button', 'wpcf7')); ?>",
 		tagName: "<?php echo js_escape(__('Name', 'wpcf7')); ?>",
@@ -480,6 +504,8 @@ var _wpcf7 = {
 				return __('Failed to send your message. Please try later or contact administrator by other way.', 'wpcf7');
 			case 'validation_error':
 				return __('Validation errors occurred. Please confirm the fields and submit it again.', 'wpcf7');
+            case 'accept_terms':
+                return __('Please accept the terms to proceed.', 'wpcf7');
 			case 'invalid_email':
 				return __('Email address seems invalid.', 'wpcf7');
 			case 'invalid_required':
@@ -500,6 +526,8 @@ var _wpcf7 = {
 			$validation = $this->validate($cf);
 			if (! $validation['valid']) {
 				$_POST['_wpcf7_validation_errors'] = array('id' => $id, 'messages' => $validation['reason']);
+			} elseif (! $this->acceptance($cf)) { // Not accepted terms
+				$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => false, 'message' => $this->message('accept_terms'));
 			} elseif ($this->akismet($cf)) { // Spam!
 				$_POST['_wpcf7_mail_sent'] = array('id' => $id, 'ok' => false, 'message' => $this->message('mail_sent_ng'), 'spam' => true);
 			} elseif ($this->mail($cf)) {
@@ -555,7 +583,7 @@ var _wpcf7 = {
 		$url = parse_url($_SERVER['REQUEST_URI']);
 		$url = $url['path'] . (empty($url['query']) ? '' : '?' . $url['query']) . '#' . $unit_tag;
 		
-		$form .= '<form action="' . $url . '" method="post" class="wpcf7-form">';
+		$form .= '<form action="' . $url . '" method="post" class="wpcf7-form" id="' . $unit_tag . '">';
 		$form .= '<input type="hidden" name="_wpcf7" value="' . $id . '" />';
 		$form .= '<input type="hidden" name="_wpcf7_unit_tag" value="' . $unit_tag . '" />';
 		$form .= $this->form_elements($cf['form']);
@@ -584,6 +612,13 @@ var _wpcf7 = {
 		$class = ' class="' . $class . '"';
 		
 		$form .= '<div' . $class . '>' . $content . '</div>';
+        
+        $script = '<script type="text/javascript">
+//<![CDATA[
+wpcf7ToggleSubmit(jQuery("form#' . $unit_tag . '").get(0));
+//]]>
+</script>';
+        $form .= $script;
 		
 		$form .= '</div>';
 		
@@ -616,6 +651,9 @@ var _wpcf7 = {
                         $_POST[$name] = '';
                 }
             }
+            
+            if ('acceptance' == $type)
+                $_POST[$name] = $_POST[$name] ? 1 : 0;
             
 			// Required item (*)
 			if (preg_match('/^(?:text|textarea)[*]$/', $type)) {
@@ -686,7 +724,7 @@ var _wpcf7 = {
 /* Processing form element placeholders */
 
 	function form_elements($form, $replace = true) {
-		$types = 'text[*]?|email[*]?|textarea[*]?|select|checkbox|radio|captchac|captchar';
+		$types = 'text[*]?|email[*]?|textarea[*]?|select|checkbox|radio|acceptance|captchac|captchar';
 		$regex = '%\[\s*(' . $types . ')(\s+[a-zA-Z][0-9a-zA-Z:._-]*)([-0-9a-zA-Z:#_/\s]*)?((?:\s*(?:"[^"]*"|\'[^\']*\'))*)?\s*\]%';
 		$submit_regex = '/\[\s*submit(\s+(?:"[^"]*"|\'[^\']*\'))?\s*\]/';
 		if ($replace) {
@@ -746,6 +784,12 @@ var _wpcf7 = {
         if (preg_match('/^captchac$/', $type))
             $class_att .= ' wpcf7-captcha-' . $name;
         
+        if ('acceptance' == $type) {
+            $class_att .= ' wpcf7-acceptance';
+            if (preg_grep('%^invert$%', $options))
+                $class_att .= ' wpcf7-invert';
+        }
+        
         if ($class_att)
             $atts .= ' class="' . trim($class_att) . '"';
 		
@@ -780,9 +824,13 @@ var _wpcf7 = {
 						preg_match('%^([0-9]*)[/x]([0-9]*)$%', $size_maxlength, $sm_matches);
 						if ($size = (int) $sm_matches[1])
 							$atts .= ' size="' . $size . '"';
+                        else
+                            $atts .= ' size="40"';
 						if ($maxlength = (int) $sm_matches[2])
 							$atts .= ' maxlength="' . $maxlength . '"';
-					}
+					} else {
+                        $atts .= ' size="40"';
+                    }
 				}
 				$html = '<input type="text" name="' . $name . '" value="' . attribute_escape($value) . '"' . $atts . ' />';
 				$html = '<span style="position: relative;">' . $html . $validation_error . '</span>';
@@ -796,9 +844,15 @@ var _wpcf7 = {
 						preg_match('%^([0-9]*)[x/]([0-9]*)$%', $cols_rows, $cr_matches);
 						if ($cols = (int) $cr_matches[1])
 							$atts .= ' cols="' . $cols . '"';
+                        else
+                            $atts .= ' cols="40"';
 						if ($rows = (int) $cr_matches[2])
 							$atts .= ' rows="' . $rows . '"';
-					}
+                        else
+                            $atts .= ' rows="10"';
+					} else {
+                        $atts .= ' cols="40" rows="10"';
+                    }
 				}
 				$html = '<textarea name="' . $name . '"' . $atts . '>' . $value . '</textarea>';
 				$html = '<span style="position: relative;">' . $html . $validation_error . '</span>';
@@ -836,7 +890,7 @@ var _wpcf7 = {
                 $html = '';
                 
                 if ('checkbox' == $type && ! $multiple)
-                    $input_class = ' class="exclusive"';
+                    $onclick = ' onclick="wpcf7ExclusiveCheckbox(this);"';
                 
                 foreach ($values as $key => $value) {
                     $checked = '';
@@ -848,9 +902,9 @@ var _wpcf7 = {
                         $checked = ' checked="checked"';
                     if (preg_grep('%^label[_-]?first$%', $options)) { // put label first, input last
                         $item = '<span class="wpcf7-list-item-label">' . $value . '</span>&nbsp;';
-                        $item .= '<input type="' . $type . '" name="' . $name . ($multiple ? '[]' : '') . '" value="' . attribute_escape($value) . '"' . $checked . $input_class . ' />';
+                        $item .= '<input type="' . $type . '" name="' . $name . ($multiple ? '[]' : '') . '" value="' . attribute_escape($value) . '"' . $checked . $onclick . ' />';
                     } else {
-                        $item = '<input type="' . $type . '" name="' . $name . ($multiple ? '[]' : '') . '" value="' . attribute_escape($value) . '"' . $checked . $input_class . ' />';
+                        $item = '<input type="' . $type . '" name="' . $name . ($multiple ? '[]' : '') . '" value="' . attribute_escape($value) . '"' . $checked . $onclick . ' />';
                         $item .= '&nbsp;<span class="wpcf7-list-item-label">' . $value . '</span>';
                     }
                     $item = '<span class="wpcf7-list-item">' . $item . '</span>';
@@ -861,6 +915,15 @@ var _wpcf7 = {
 				$html = '<span style="position: relative;">' . $html . $validation_error . '</span>';
 				return $html;
 				break;
+            case 'acceptance':
+                $invert = (bool) preg_grep('%^invert$%', $options);
+                $default = (bool) preg_grep('%^default:on$%', $options);
+                
+                $onclick = ' onclick="wpcf7ToggleSubmit(this.form);"';
+                $checked = $default ? ' checked="checked"' : '';
+                $html = '<input type="checkbox" value="1"' . $atts . $onclick . $checked . ' />';
+                return $html;
+                break;
 			case 'captchac':
 				$op = array();
 				// Default
@@ -878,7 +941,7 @@ var _wpcf7 = {
 				if (is_array($op['img_size']))
 					$atts .= ' width="' . $op['img_size'][0] . '" height="' . $op['img_size'][1] . '"';
 				$captcha_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/captcha/tmp/' . $filename;
-				$html = '<img src="' . $captcha_url . '"' . $atts . ' />';
+				$html = '<img alt="captcha" src="' . $captcha_url . '"' . $atts . ' />';
 				$ref = substr($filename, 0, strrpos($filename, '.'));
 				$html = '<input type="hidden" name="_wpcf7_captcha_challenge_' . $name . '" value="' . $ref . '" />' . $html;
 				return $html;
@@ -892,7 +955,10 @@ var _wpcf7 = {
 		if (empty($value))
 			$value = __('Send', 'wpcf7');
 		$ajax_loader_image_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/images/ajax-loader.gif';
-		return '<input type="submit" value="' . $value . '" /> <img class="ajax-loader" style="visibility: hidden;" src="' . $ajax_loader_image_url . '" />';
+        
+        $html = '<input type="submit" value="' . $value . '" />';
+        $html .= ' <img class="ajax-loader" style="visibility: hidden;" alt="ajax loader" src="' . $ajax_loader_image_url . '" />';
+		return $html;
 	}
 
 	function form_element_parse($element) {
