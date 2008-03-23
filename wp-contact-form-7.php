@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.7.6
+Version: 1.7.6.1
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -583,7 +583,7 @@ var _wpcf7 = {
 		$url = parse_url($_SERVER['REQUEST_URI']);
 		$url = $url['path'] . (empty($url['query']) ? '' : '?' . $url['query']) . '#' . $unit_tag;
 		
-		$form .= '<form action="' . $url . '" method="post" class="wpcf7-form" id="' . $unit_tag . '">';
+		$form .= '<form action="' . $url . '" method="post" class="wpcf7-form">';
 		$form .= '<input type="hidden" name="_wpcf7" value="' . $id . '" />';
 		$form .= '<input type="hidden" name="_wpcf7_unit_tag" value="' . $unit_tag . '" />';
 		$form .= $this->form_elements($cf['form']);
@@ -612,13 +612,6 @@ var _wpcf7 = {
 		$class = ' class="' . $class . '"';
 		
 		$form .= '<div' . $class . '>' . $content . '</div>';
-        
-        $script = '<script type="text/javascript">
-//<![CDATA[
-wpcf7ToggleSubmit(jQuery("form#' . $unit_tag . '").get(0));
-//]]>
-</script>';
-        $form .= $script;
 		
 		$form .= '</div>';
 		
@@ -921,7 +914,7 @@ wpcf7ToggleSubmit(jQuery("form#' . $unit_tag . '").get(0));
                 
                 $onclick = ' onclick="wpcf7ToggleSubmit(this.form);"';
                 $checked = $default ? ' checked="checked"' : '';
-                $html = '<input type="checkbox" value="1"' . $atts . $onclick . $checked . ' />';
+                $html = '<input type="checkbox" name="' . $name . '" value="1"' . $atts . $onclick . $checked . ' />';
                 return $html;
                 break;
 			case 'captchac':
