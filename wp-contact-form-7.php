@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.7.7.1
+Version: 1.7.8
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -259,6 +259,8 @@ class tam_contact_form_seven {
     }
 
 	function set_initial() {
+        $this->load_plugin_textdomain();
+    
 		$wpcf7 = get_option('wpcf7');
 		if (! is_array($wpcf7))
 			$wpcf7 = array();
@@ -636,11 +638,13 @@ var _wpcf7 = {
 			if (preg_match('/^(?:select|checkbox|radio)[*]?$/', $type)) {
                 if (is_array($_POST[$name])) {
                     foreach ($_POST[$name] as $key => $value) {
+                        $value = stripslashes($value);
                         if (! in_array($value, $values)) // Not in given choices.
                             unset($_POST[$name][$key]);
                     }
                 } else {
-                    if (! in_array($_POST[$name], $values)) //  Not in given choices.
+                    $value = stripslashes($_POST[$name]);
+                    if (! in_array($value, $values)) //  Not in given choices.
                         $_POST[$name] = '';
                 }
             }
