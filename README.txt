@@ -3,8 +3,8 @@ Contributors: takayukister
 Donate link: http://takayukister.chipin.com/contact-form-7-20
 Tags: contact form, email, ajax, captcha, akismet
 Requires at least: 2.2
-Tested up to: 2.6-RC1
-Stable tag: 1.7.8
+Tested up to: 2.7-bleeding
+Stable tag: 1.8
 
 Just another contact form plugin. Simple but flexible.
 
@@ -12,55 +12,50 @@ Just another contact form plugin. Simple but flexible.
 
 Just another contact form plugin. Simple but flexible.
 
-* Supports multiple contact forms.
-* You can customize form and mail contents with simple markup.
-* AJAX submitting with jQuery Form Plugin.
-* Spam filtering with Akismet.
-* Bot prevention with CAPTCHA.
+Contact Form 7 can manage multiple contact forms, plus you can customize the form and the mail contents flexibly with simple markup. The form supports Ajax-powered submitting, CAPTCHA, Akismet spam filtering and so on.
+
+Since being published in August 2007, Contact Form 7 has been translated into a number of languages. Our thanks and appreciation must go to the following for their contributions:
+
+* Brazilian Portuguese (pt_BR) - [Leonardo Pinheiro](http://www.eletrikabarbarella.com.br/) (updated by Henrique Vianna)
+* Bulgarian (bg_BG) - [Iliyan Darganov](http://www.darganov.com/)
+* Catalan (ca_ES) - [Jordi Sancho](http://www.qasolutions.net/blog)
+* Czech (cs_CZ) - Korry
+* Danish (da_DK) - [Jens Griebel](http://www.kompas-it.dk/)
+* Dutch (nl_NL) - [Chris Devriese](http://www.100it.be/)
+* French (fr_FR) - [Jillij](http://www.jillij.com/)
+* German (de_DE) - [Marcel Spitau](http://blog.spitau.de)
+* Hungarian (hu_HU) - [Andras Hirschler](http://hia.itblog.hu/)
+* Italian (it_IT) - [Bruno](http://www.brunosalzano.com)
+* Japanese (ja) - [Takayuki Miyoshi](http://ideasilo.wordpress.com) (plugin author)
+* Latvian (lv) - [Sandis Veinbergs](http://www.kleofass.lv/)
+* Norwegian (nb_NO) - Kjetil M. Bergem
+* Polish (pl_PL) - [Zbigniew Czernik](http://zibik.jogger.pl/)
+* Russian (ru_RU) - [Dmitry Volotovich](http://www.volnov.com)
+* Romanian (ro) - [Stas Sushkov](http://stas.nerd.ro/ascii/)
+* Spanish (es_ES) - [Jordi Sancho](http://www.qasolutions.net/blog)
+(updated by [Vladimir Prieto](http://vladimir.prie.to/) and [Federico Mikaelian](http://www.fedemika.com.ar/))
+* Swedish (sv_SE) - [Fredrik Jonsson](http://www.fredda-o-ac.se/)
+* Turkish (tr_TR) - [Roman Neumuller](http://katpatuka.wordpress.com)
+
+If you have created your own language pack, or have an update of an existing one, you can send [gettext .po and .mo files](http://codex.wordpress.org/Translating_WordPress) to me so that I can bundle it into Contact Form 7.
 
 == Installation ==
 
-1. Upload whole `contact-form-7` folder to the `/wp-content/plugins/` directory
-1. Activate the plugin through the 'Plugins' menu in WordPress
+1. Upload the entire `contact-form-7` folder to the `/wp-content/plugins/` directory.
+1. Activate the plugin through the 'Plugins' menu in WordPress.
 
-See also: [plugin homepage](http://ideasilo.wordpress.com/2007/04/30/contact-form-7/) and [FAQ](http://ideasilo.wordpress.com/2008/03/29/contact-form-7-faq/)
+The control panel of Contact Form 7 is in 'Manage > Contact Form 7'. Please note that it has moved from the 'Settings' menu since Contact Form 7 1.8.
+
+For basic usage, you can also have a look at the [plugin homepage](http://ideasilo.wordpress.com/2007/04/30/contact-form-7/) and [FAQ](http://ideasilo.wordpress.com/2008/03/29/contact-form-7-faq/).
 
 == Frequently Asked Questions ==
 
-See [Contact Form 7 FAQ](http://ideasilo.wordpress.com/2008/03/29/contact-form-7-faq/)
+Please see [FAQ](http://ideasilo.wordpress.com/2008/03/29/contact-form-7-faq/).
 
-If you have questions about Contact Form 7,
-please submit it [to the support forum](http://wordpress.org/tags/contact-form-7#postform) or
-comment [on my blog](http://ideasilo.wordpress.com/2007/04/30/contact-form-7/).
+If you have any further questions,
+please submit them [to the support forum](http://wordpress.org/tags/contact-form-7#postform).
 
 == Screenshots ==
 
 1. screenshot-1.png
-
-== Localization ==
-
-Contact Form 7 has been translated into the following languages.
-
-* Brazilian Portuguese, by [Leonardo Pinheiro](http://www.eletrikabarbarella.com.br/) (revised by Henrique Vianna)
-* Bulgarian, by [Iliyan Darganov](http://www.darganov.com/)
-* Catalan, by [Jordi Sancho](http://www.qasolutions.net/blog)
-* Czech, by Korry
-* Danish, by [Jens Griebel](http://www.kompas-it.dk/)
-* Dutch, by [Chris Devriese](http://www.100it.be/)
-* French, by [Jillij](http://www.jillij.com/)
-* German, by [Marcel Spitau](http://blog.spitau.de)
-* Italian, by [Bruno](http://www.brunosalzano.com)
-* Japanese, by [Takayuki Miyoshi](http://ideasilo.wordpress.com) (plugin author)
-* Latvian, by [Sandis Veinbergs](http://www.kleofass.lv/)
-* Norwegian, by Kjetil M. Bergem
-* Polish, by [Zbigniew Czernik](http://zibik.jogger.pl/)
-* Russian, by [Dmitry Volotovich](http://www.volnov.com)
-* Romanian, by [Stas Sushkov](http://stas.nerd.ro/ascii/)
-* Spanish, by [Jordi Sancho](http://www.qasolutions.net/blog)
-(revised by [Vladimir Prieto](http://vladimir.prie.to/) and [Federico Mikaelian](http://www.fedemika.com.ar/))
-* Swedish, by [Fredrik Jonsson](http://www.fredda-o-ac.se/)
-* Turkish, by [Roman Neumuller](http://katpatuka.wordpress.com)
-
-These language files are included in the plugin.
-
-If you have translated Contact Form 7 in your language, please let me know and send me [gettext .po and .mo files](http://codex.wordpress.org/Translating_WordPress). Thank you for your contribution.
+2. screenshot-2.png

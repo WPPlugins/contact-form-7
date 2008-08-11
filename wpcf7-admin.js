@@ -1,5 +1,9 @@
 jQuery(document).ready(function() {
-  jQuery('#form-content-fieldset textarea:first').after(tagGenerator());
+  jQuery('#form-content-fieldset textarea:first:enabled').after(tagGenerator());
+  
+  jQuery('input#wpcf7-title:enabled').css({
+    cursor: 'pointer'
+  });
   
   jQuery('input#wpcf7-title').mouseover(function() {
     jQuery(this).not('.focus').css({
@@ -352,6 +356,11 @@ function tgPane(pane, tagType) {
       pane.append(table);
       
       table.append(tgTr(
+        jQuery('<span><code>id</code> (' + _wpcf7.l10n.optional + ')<br /></span>').append(tgInputs.tagId),
+        jQuery('<span><code>class</code> (' + _wpcf7.l10n.optional + ')<br /></span>').append(tgInputs.tagClasses)
+      ));
+      
+      table.append(tgTr(
         jQuery('<span>' + _wpcf7.l10n.label + '<br /></span>').append(tgInputs.label),
         jQuery('<span></span>')
       ));
@@ -579,10 +588,20 @@ function tgCreateTag(tagType, tgInputs, trigger) {
       break;
     case 'submit':
       var type = 'submit';
+      
+      var options = [];
+      if (tgInputs.tagId.val())
+        options.push('id:' + tgInputs.tagId.val());
+      if (tgInputs.tagClasses.val())
+        jQuery.each(tgInputs.tagClasses.val().split(' '), function(i, n) {
+          options.push('class:' + n);
+        });
+      options = (options.length > 0) ? ' ' + options.join(' ') : '';
+      
       var label = tgInputs.label.val();
       if (label)
         label = ' "' + label.replace(/["]/g, '&quot;') + '"';
-      var tag = '[' + type + label +  ']';
+      var tag = '[' + type + options + label +  ']';
       tgInputs.tag1st.val(tag);
       break;
   }

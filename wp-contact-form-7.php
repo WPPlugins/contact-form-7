@@ -4,11 +4,11 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.7.8
+Version: 1.8
 Author URI: http://ideasilo.wordpress.com/
 */
 
-/*  Copyright 2007 Takayuki Miyoshi (email: takayukister at gmail.com)
+/*  Copyright 2007-2008 Takayuki Miyoshi (email: takayukister at gmail.com)
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -24,6 +24,40 @@ Author URI: http://ideasilo.wordpress.com/
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+
+define('WPCF7_VERSION', '1.8');
+
+function wpcf7_version() {
+    return WPCF7_VERSION;
+}
+
+if (! defined('WP_CONTENT_DIR'))
+    define('WP_CONTENT_DIR', ABSPATH . 'wp-content');
+if (! defined('WP_CONTENT_URL'))
+    define('WP_CONTENT_URL', get_option('siteurl') . '/wp-content');
+
+if (! defined('WP_PLUGIN_DIR'))
+    define('WP_PLUGIN_DIR', WP_CONTENT_DIR . '/plugins');
+if (! defined('WP_PLUGIN_URL'))
+    define('WP_PLUGIN_URL', WP_CONTENT_URL . '/plugins');
+
+if (! defined('WPCF7_PLUGIN_DIR'))
+    define('WPCF7_PLUGIN_DIR', WP_PLUGIN_DIR . '/' . plugin_basename(dirname(__FILE__)));
+if (! defined('WPCF7_PLUGIN_URL'))
+    define('WPCF7_PLUGIN_URL', WP_PLUGIN_URL . '/' . plugin_basename(dirname(__FILE__)));
+
+if (! defined('WPCF7_CAPTCHA_TMP_DIR'))
+    define('WPCF7_CAPTCHA_TMP_DIR', WP_CONTENT_DIR . '/uploads/wpcf7_captcha');
+if (! defined('WPCF7_CAPTCHA_TMP_URL'))
+    define('WPCF7_CAPTCHA_TMP_URL', WP_CONTENT_URL . '/uploads/wpcf7_captcha');
+
+if (! function_exists('wpcf7_read_capability')) {
+    function wpcf7_read_capability() { return 'edit_posts'; }
+}
+
+if (! function_exists('wpcf7_read_write_capability')) {
+    function wpcf7_read_write_capability() { return 'publish_pages'; }
+}
 
 class tam_contact_form_seven {
 
@@ -44,42 +78,44 @@ class tam_contact_form_seven {
 		if (remove_filter('the_content', 'wpautop'))
             add_filter('the_content', array(&$this, 'wpautop_substitute'));
 	}
-	
-	// Original wpautop function has harmful effect on formatting of form elements.
-	// This wpautop_substitute is a temporary substitution until original is patched.
-	// See http://trac.wordpress.org/ticket/4605
-	function wpautop_substitute($pee, $br = 1) {
-		$pee = $pee . "\n"; // just to make things a little easier, pad the end
-		$pee = preg_replace('|<br />\s*<br />|', "\n\n", $pee);
-		// Space things out a little
-		$allblocks = '(?:address|area|blockquote|caption|colgroup|dd|div|dl|dt|form|h[1-6]|li|map|math|ol|p|pre|table|tbody|td|tfoot|th|thead|tr|ul)';
-		$pee = preg_replace('!(<' . $allblocks . '[^>]*>)!', "\n$1", $pee);
-		$pee = preg_replace('!(</' . $allblocks . '>)!', "$1\n\n", $pee);
-		$pee = str_replace(array("\r\n", "\r"), "\n", $pee); // cross-platform newlines
-		$pee = preg_replace("/\n\n+/", "\n\n", $pee); // take care of duplicates
-		$pee = preg_replace('/\n?(.+?)(?:\n\s*\n|\z)/s', "<p>$1</p>\n", $pee); // make paragraphs, including one at the end
-		$pee = preg_replace('|<p>\s*?</p>|', '', $pee); // under certain strange conditions it could create a P of entirely whitespace
-		$pee = preg_replace('!<p>([^<]+)\s*?(</(?:div|address|form)[^>]*>)!', "<p>$1</p>$2", $pee);
-		$pee = preg_replace( '|<p>|', "$1<p>", $pee );
-		$pee = preg_replace('!<p>\s*(</?' . $allblocks . '[^>]*>)\s*</p>!', "$1", $pee); // don't pee all over a tag
-		$pee = preg_replace("|<p>(<li.+?)</p>|", "$1", $pee); // problem with nested lists
-		$pee = preg_replace('|<p><blockquote([^>]*)>|i', "<blockquote$1><p>", $pee);
-		$pee = str_replace('</blockquote></p>', '</p></blockquote>', $pee);
-		$pee = preg_replace('!<p>\s*(</?' . $allblocks . '[^>]*>)!', "$1", $pee);
-		$pee = preg_replace('!(</?' . $allblocks . '[^>]*>)\s*</p>!', "$1", $pee);
-		if ($br) {
-			$pee = preg_replace('/<(script|style).*?<\/\\1>/se', 'str_replace("\n", "<WPPreserveNewline />", "\\0")', $pee);
-			$pee = preg_replace('|(?<!<br />)\s*\n|', "<br />\n", $pee); // optionally make line breaks
-			$pee = str_replace('<WPPreserveNewline />', "\n", $pee);
-		}
-		$pee = preg_replace('!(</?' . $allblocks . '[^>]*>)\s*<br />!', "$1", $pee);
-		$pee = preg_replace('!<br />(\s*</?(?:p|li|div|dl|dd|dt|th|pre|td|ul|ol)[^>]*>)!', '$1', $pee);
-		if (strpos($pee, '<pre') !== false)
-			$pee = preg_replace('!(<pre.*?>)(.*?)</pre>!ise', " stripslashes('$1') .  stripslashes(clean_pre('$2'))  . '</pre>' ", $pee);
-		$pee = preg_replace( "|\n</p>$|", '</p>', $pee );
-		
-		return $pee;
-	}
+    
+    function wpautop_substitute($pee, $br = 1) {
+        $pee = $pee . "\n"; // just to make things a little easier, pad the end
+        $pee = preg_replace('|<br />\s*<br />|', "\n\n", $pee);
+        // Space things out a little
+        $allblocks = '(?:table|thead|tfoot|caption|colgroup|tbody|tr|td|th|div|dl|dd|dt|ul|ol|li|pre|form|map|area|blockquote|address|math|style|p|h[1-6]|hr)';
+        $pee = preg_replace('!(<' . $allblocks . '[^>]*>)!', "\n$1", $pee);
+        $pee = preg_replace('!(</' . $allblocks . '>)!', "$1\n\n", $pee);
+        $pee = str_replace(array("\r\n", "\r"), "\n", $pee); // cross-platform newlines
+        if ( strpos($pee, '<object') !== false ) {
+            $pee = preg_replace('|\s*<param([^>]*)>\s*|', "<param$1>", $pee); // no pee inside object/embed
+            $pee = preg_replace('|\s*</embed>\s*|', '</embed>', $pee);
+        }
+        $pee = preg_replace("/\n\n+/", "\n\n", $pee); // take care of duplicates
+        $pee = preg_replace('/\n?(.+?)(?:\n\s*\n|\z)/s', "<p>$1</p>\n", $pee); // make paragraphs, including one at the end
+        $pee = preg_replace('|<p>\s*?</p>|', '', $pee); // under certain strange conditions it could create a P of entirely whitespace
+        $pee = preg_replace('!<p>([^<]+)\s*?(</(?:div|address|form)[^>]*>)!', "<p>$1</p>$2", $pee);
+        $pee = preg_replace( '|<p>|', "$1<p>", $pee );
+        $pee = preg_replace('!<p>\s*(</?' . $allblocks . '[^>]*>)\s*</p>!', "$1", $pee); // don't pee all over a tag
+        $pee = preg_replace("|<p>(<li.+?)</p>|", "$1", $pee); // problem with nested lists
+        $pee = preg_replace('|<p><blockquote([^>]*)>|i', "<blockquote$1><p>", $pee);
+        $pee = str_replace('</blockquote></p>', '</p></blockquote>', $pee);
+        $pee = preg_replace('!<p>\s*(</?' . $allblocks . '[^>]*>)!', "$1", $pee);
+        $pee = preg_replace('!(</?' . $allblocks . '[^>]*>)\s*</p>!', "$1", $pee);
+        if ($br) {
+            $pee = preg_replace_callback('/<(script|style).*?<\/\\1>/s', create_function('$matches', 'return str_replace("\n", "<WPPreserveNewline />", $matches[0]);'), $pee);
+            $pee = preg_replace('|(?<!<br />)\s*\n|', "<br />\n", $pee); // optionally make line breaks
+            $pee = str_replace('<WPPreserveNewline />', "\n", $pee);
+        }
+        $pee = preg_replace('!(</?' . $allblocks . '[^>]*>)\s*<br />!', "$1", $pee);
+        $pee = preg_replace('!<br />(\s*</?(?:p|li|div|dl|dd|dt|th|pre|td|ul|ol)[^>]*>)!', '$1', $pee);
+        if (strpos($pee, '<pre') !== false)
+            $pee = preg_replace_callback('!(<pre.*?>)(.*?)</pre>!is', 'clean_pre', $pee );
+        $pee = preg_replace( "|\n</p>$|", '</p>', $pee );
+        $pee = preg_replace('/<p>\s*?(' . get_shortcode_regex() . ')\s*<\/p>/s', '$1', $pee); // don't auto-p wrap shortcodes that stand alone
+    
+        return $pee;
+    }
 
 	function init_switch() {
 		if ('POST' == $_SERVER['REQUEST_METHOD'] && $_POST['_wpcf7_is_ajax_call']) {
@@ -277,7 +313,12 @@ class tam_contact_form_seven {
 	}
 
 	function load_plugin_textdomain() { // l10n
-		load_plugin_textdomain('wpcf7', 'wp-content/plugins/contact-form-7/languages');
+        global $wp_version;
+
+        if (version_compare($wp_version, '2.6', '<')) // Using old WordPress
+            load_plugin_textdomain('wpcf7', 'wp-content/plugins/contact-form-7/languages');
+        else
+            load_plugin_textdomain('wpcf7', 'wp-content/plugins/contact-form-7/languages', 'contact-form-7/languages');
 	}
 
 	function contact_forms() {
@@ -305,11 +346,15 @@ class tam_contact_form_seven {
 /* Admin panel */
 
 	function add_pages() {
-		$base_url = get_option('siteurl') . '/wp-admin/options-general.php';
+        if (function_exists('admin_url')) {
+            $base_url = admin_url('edit.php');
+        } else {
+            $base_url = get_option('siteurl') . '/wp-admin/edit.php';
+        }
 		$page = str_replace('\\', '%5C', plugin_basename(__FILE__));
 		$contact_forms = $this->contact_forms();
 		
-		if (isset($_POST['wpcf7-save'])) {
+		if (isset($_POST['wpcf7-save']) && $this->has_edit_cap()) {
 			$id = $_POST['wpcf7-id'];
 			check_admin_referer('wpcf7-save_' . $id);
 			
@@ -344,7 +389,7 @@ class tam_contact_form_seven {
 			
 			wp_redirect($redirect_to);
 			exit();
-		} elseif (isset($_POST['wpcf7-delete'])) {
+		} elseif (isset($_POST['wpcf7-delete']) && $this->has_edit_cap()) {
 			$id = $_POST['wpcf7-id'];
 			check_admin_referer('wpcf7-delete_' . $id);
 			
@@ -355,17 +400,17 @@ class tam_contact_form_seven {
 			exit();
 		}
 	
-		add_options_page(__('Contact Form 7', 'wpcf7'), __('Contact Form 7', 'wpcf7'), 'manage_options', __FILE__, array(&$this, 'option_page'));
+		add_management_page(__('Contact Form 7', 'wpcf7'), __('Contact Form 7', 'wpcf7'), wpcf7_read_capability(), __FILE__, array(&$this, 'management_page'));
 	}
 	
 	function admin_head() {
 		global $plugin_page;
 		
 		if (isset($plugin_page) && $plugin_page == plugin_basename(__FILE__)) {
-			$admin_stylesheet_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/admin-stylesheet.css';
+            $admin_stylesheet_url = WPCF7_PLUGIN_URL . '/admin-stylesheet.css';
 			echo '<link rel="stylesheet" href="' . $admin_stylesheet_url . '" type="text/css" />';
 			
-			$javascript_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/wpcf7-admin.js';
+			$javascript_url = WPCF7_PLUGIN_URL . '/wpcf7-admin.js';
 ?>
 <script type="text/javascript">
 //<![CDATA[
@@ -417,9 +462,17 @@ var _wpcf7 = {
 <?php
 		}
 	}
+    
+    function has_edit_cap() {
+        return current_user_can(wpcf7_read_write_capability());
+    }
 	
-	function option_page() {
-		$base_url = get_option('siteurl') . '/wp-admin/options-general.php';
+	function management_page() {
+        if (function_exists('admin_url')) {
+            $base_url = admin_url('edit.php');
+        } else {
+            $base_url = get_option('siteurl') . '/wp-admin/edit.php';
+        }
 		$page = plugin_basename(__FILE__);
 		$contact_forms = $this->contact_forms();
 		
@@ -446,10 +499,12 @@ var _wpcf7 = {
 			$cf = stripslashes_deep($contact_forms[$current]);
 			$cf = $this->upgrade_160($cf);
 		} else {
-			$cf = null;
+            $current = (int) array_shift(array_keys($contact_forms));
+            $cf = stripslashes_deep($contact_forms[$current]);
+			$cf = $this->upgrade_160($cf);
 		}
 		
-		require_once ABSPATH . PLUGINDIR . '/contact-form-7/includes/admin-panel.php';
+		require_once WPCF7_PLUGIN_DIR . '/includes/admin-panel.php';
 	}
 
 	function default_pack($title, $initial = false) {
@@ -464,14 +519,14 @@ var _wpcf7 = {
 	}
 
 	function default_form_template() {
-		$template .= '<p><label>' . __('Your Name', 'wpcf7') . ' ' . __('(required)', 'wpcf7') . '<br />' . "\n";
-		$template .= '    [text* your-name] </label></p>' . "\n\n";
-		$template .= '<p><label>' . __('Your Email', 'wpcf7') . ' ' . __('(required)', 'wpcf7') . '<br />' . "\n";
-		$template .= '    [email* your-email] </label></p>' . "\n\n";
-		$template .= '<p><label>' . __('Subject', 'wpcf7') . '<br />' . "\n";
-		$template .= '    [text your-subject] </label></p>' . "\n\n";
-		$template .= '<p><label>' . __('Your Message', 'wpcf7') . '<br />' . "\n";
-		$template .= '    [textarea your-message] </label></p>' . "\n\n";
+		$template .= '<p>' . __('Your Name', 'wpcf7') . ' ' . __('(required)', 'wpcf7') . '<br />' . "\n";
+		$template .= '    [text* your-name] </p>' . "\n\n";
+		$template .= '<p>' . __('Your Email', 'wpcf7') . ' ' . __('(required)', 'wpcf7') . '<br />' . "\n";
+		$template .= '    [email* your-email] </p>' . "\n\n";
+		$template .= '<p>' . __('Subject', 'wpcf7') . '<br />' . "\n";
+		$template .= '    [text your-subject] </p>' . "\n\n";
+		$template .= '<p>' . __('Your Message', 'wpcf7') . '<br />' . "\n";
+		$template .= '    [textarea your-message] </p>' . "\n\n";
 		$template .= '<p>[submit "' . __('Send', 'wpcf7') . '"]</p>';
 		return $template;
 	}
@@ -580,14 +635,17 @@ var _wpcf7 = {
 		$unit_tag = 'wpcf7-f' . $id . '-' . $this->processing_within . '-o' . $this->unit_count;
 		$this->processing_unit_tag = $unit_tag;
 
-		$form = '<div class="wpcf7" id="' . $unit_tag . '">';
+        $form = '<!-- Contact Form 7 ' . wpcf7_version() . ' -->';
+		$form .= '<div class="wpcf7" id="' . $unit_tag . '">';
 		
 		$url = parse_url($_SERVER['REQUEST_URI']);
 		$url = $url['path'] . (empty($url['query']) ? '' : '?' . $url['query']) . '#' . $unit_tag;
 		
 		$form .= '<form action="' . $url . '" method="post" class="wpcf7-form">';
+        $form .= '<div style="display: none;">';
 		$form .= '<input type="hidden" name="_wpcf7" value="' . $id . '" />';
 		$form .= '<input type="hidden" name="_wpcf7_unit_tag" value="' . $unit_tag . '" />';
+        $form .= '</div>';
 		$form .= $this->form_elements($cf['form']);
 		$form .= '</form>';
 		
@@ -701,19 +759,20 @@ var _wpcf7 = {
 			$options = $fe['options'];
 			if ('captchac' == $type) {
 				$op = $this->captchac_options($options);
-				if ($filename = $this->generate_captcha($op))
-					$captcha_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/captcha/tmp/' . $filename;
+				if ($filename = $this->generate_captcha($op)) {
+					$captcha_url = trailingslashit(WPCF7_CAPTCHA_TMP_URL) . $filename;
 					$refill[$name] = $captcha_url;
+                }
 			}
 		}
 		return $refill;
 	}
 
 	function wp_head() {
-		$stylesheet_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/stylesheet.css';
+		$stylesheet_url = WPCF7_PLUGIN_URL . '/stylesheet.css';
 		echo '<link rel="stylesheet" href="' . $stylesheet_url . '" type="text/css" />';
 		
-		$javascript_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/contact-form-7.js';
+		$javascript_url = WPCF7_PLUGIN_URL . '/contact-form-7.js';
 ?>
 <script type='text/javascript' src='<?php echo $javascript_url; ?>'></script>
 <?php
@@ -721,7 +780,7 @@ var _wpcf7 = {
 	
 	function load_js() {
 		global $pagenow;
-        if (is_admin() && 'options-general.php' == $pagenow && false !== strpos($_GET['page'], 'contact-form-7'))
+        if (is_admin() && 'edit.php' == $pagenow && false !== strpos($_GET['page'], 'contact-form-7'))
 			wp_enqueue_script('jquery');
 		if (! is_admin())
 			wp_enqueue_script('jquery-form', '/wp-includes/js/jquery/jquery.form.js', array('jquery'), '1.0.3');
@@ -732,7 +791,7 @@ var _wpcf7 = {
 	function form_elements($form, $replace = true) {
 		$types = 'text[*]?|email[*]?|textarea[*]?|select[*]?|checkbox[*]?|radio|acceptance|captchac|captchar';
 		$regex = '%\[\s*(' . $types . ')(\s+[a-zA-Z][0-9a-zA-Z:._-]*)([-0-9a-zA-Z:#_/\s]*)?((?:\s*(?:"[^"]*"|\'[^\']*\'))*)?\s*\]%';
-		$submit_regex = '/\[\s*submit(\s+(?:"[^"]*"|\'[^\']*\'))?\s*\]/';
+		$submit_regex = '%\[\s*submit(\s[-0-9a-zA-Z:#_/\s]*)?(\s+(?:"[^"]*"|\'[^\']*\'))?\s*\]%';
 		if ($replace) {
 			$form = preg_replace_callback($regex, array(&$this, 'form_element_replace_callback'), $form);
 			// Submit button
@@ -950,7 +1009,7 @@ var _wpcf7 = {
 				}
 				if (is_array($op['img_size']))
 					$atts .= ' width="' . $op['img_size'][0] . '" height="' . $op['img_size'][1] . '"';
-				$captcha_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/captcha/tmp/' . $filename;
+				$captcha_url = trailingslashit(WPCF7_CAPTCHA_TMP_URL) . $filename;
 				$html = '<img alt="captcha" src="' . $captcha_url . '"' . $atts . ' />';
 				$ref = substr($filename, 0, strrpos($filename, '.'));
 				$html = '<input type="hidden" name="_wpcf7_captcha_challenge_' . $name . '" value="' . $ref . '" />' . $html;
@@ -960,13 +1019,34 @@ var _wpcf7 = {
 	}
 
 	function submit_replace_callback($matches) {
-		if ($matches[1])
-			$value = $this->strip_quote($matches[1]);
+        $atts = '';
+        $options = preg_split('/[\s]+/', trim($matches[1]));
+        
+        $id_array = preg_grep('%^id:[-0-9a-zA-Z_]+$%', $options);
+        if ($id = array_shift($id_array)) {
+            preg_match('%^id:([-0-9a-zA-Z_]+)$%', $id, $id_matches);
+            if ($id = $id_matches[1])
+                $atts .= ' id="' . $id . '"';
+        }
+        
+        $class_att = '';
+        $class_array = preg_grep('%^class:[-0-9a-zA-Z_]+$%', $options);
+        foreach ($class_array as $class) {
+            preg_match('%^class:([-0-9a-zA-Z_]+)$%', $class, $class_matches);
+            if ($class = $class_matches[1])
+                $class_att .= ' ' . $class;
+        } 
+        
+        if ($class_att)
+            $atts .= ' class="' . trim($class_att) . '"';
+        
+		if ($matches[2])
+			$value = $this->strip_quote($matches[2]);
 		if (empty($value))
 			$value = __('Send', 'wpcf7');
-		$ajax_loader_image_url = get_option('siteurl') . '/wp-content/plugins/contact-form-7/images/ajax-loader.gif';
+		$ajax_loader_image_url = WPCF7_PLUGIN_URL . '/images/ajax-loader.gif';
         
-        $html = '<input type="submit" value="' . $value . '" />';
+        $html = '<input type="submit" value="' . $value . '"' . $atts . ' />';
         $html .= ' <img class="ajax-loader" style="visibility: hidden;" alt="ajax loader" src="' . $ajax_loader_image_url . '" />';
 		return $html;
 	}
@@ -1002,11 +1082,19 @@ var _wpcf7 = {
 			return $result;
 		}
 	}
-
-	function generate_captcha($options = null) {
-		if (! is_object($this->captcha))
+    
+    function init_captcha() {
+        if (! is_object($this->captcha))
 			$this->captcha = new tam_captcha();
 		$captcha =& $this->captcha;
+        
+        $captcha->tmp_dir = trailingslashit(WPCF7_CAPTCHA_TMP_DIR);
+        wp_mkdir_p($captcha->tmp_dir);
+    }
+
+	function generate_captcha($options = null) {
+        $this->init_captcha();
+        $captcha =& $this->captcha;
 		
 		if (! is_dir($captcha->tmp_dir) || ! is_writable($captcha->tmp_dir))
 			return false;
@@ -1042,26 +1130,23 @@ var _wpcf7 = {
 	}
 
 	function check_captcha($prefix, $response) {
-		if (! is_object($this->captcha))
-			$this->captcha = new tam_captcha();
-		$captcha =& $this->captcha;
+        $this->init_captcha();
+        $captcha =& $this->captcha;
 		
 		return $captcha->check($prefix, $response);
 	}
 
 	function remove_captcha($prefix) {
-		if (! is_object($this->captcha))
-			$this->captcha = new tam_captcha();
-		$captcha =& $this->captcha;
+        $this->init_captcha();
+        $captcha =& $this->captcha;
 		
 		$captcha->remove($prefix);
 	}
 
 	function cleanup_captcha_files() {
-		if (! is_object($this->captcha))
-			$this->captcha = new tam_captcha();
-		$captcha =& $this->captcha;
-		
+        $this->init_captcha();
+        $captcha =& $this->captcha;
+
 		$tmp_dir = $captcha->tmp_dir;
 		
 		if (! is_dir($tmp_dir) || ! is_writable($tmp_dir))

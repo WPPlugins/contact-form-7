@@ -3,24 +3,28 @@
 <?php endif; ?>
 <div class="wrap">
 	<h2><?php _e('Contact Form 7', 'wpcf7'); ?></h2>
-	<ul class="cfmenu">
-	<?php foreach ($contact_forms as $k => $v) : ?>
-		<li><?php if ($k == $current) echo '&raquo; '; ?>
-			<a href="<?php echo $base_url . '?page=' . $page . '&contactform=' . $k ?>">
-			<?php echo $v['title']; ?></a></li>
-	<?php endforeach; ?>
-		<li class="addnew">
-			<?php if ($unsaved) echo '&raquo; '; ?>
-			<a href="<?php echo $base_url . '?page=' . $page . '&contactform=new'; ?>">
-			<?php _e('Add new', 'wpcf7'); ?></a></li>
-	</ul>
+
+    <ul class="subsubsub">
+        <?php foreach ($contact_forms as $k => $v) : ?>
+        <li><a href="<?php echo $base_url . '?page=' . $page . '&contactform=' . $k ?>"<?php if ($k == $current) echo ' class="current"'; ?>>
+            <?php echo $v['title']; ?></a> |</li>
+        <?php endforeach; ?>
+
+        <?php if ($this->has_edit_cap()) : ?>
+        <li class="addnew">
+            <a href="<?php echo $base_url . '?page=' . $page . '&contactform=new'; ?>"<?php if ($unsaved) echo ' class="current"'; ?>>
+            <?php _e('Add new', 'wpcf7'); ?></a></li>
+        <?php endif; ?>
+    </ul>
 </div>
+
 <?php if ($cf) : ?>
+<?php $disabled = ($this->has_edit_cap()) ? '' : ' disabled="disabled"'; ?>
 <div class="wrap relative">
 	<form method="post" action="<?php echo $base_url . '?page=' . $page . '&contactform=' . $current; ?>" id="wpcf7-admin-form-element">
-		<?php wp_nonce_field('wpcf7-save_' . $current); ?>
+		<?php if ($this->has_edit_cap()) wp_nonce_field('wpcf7-save_' . $current); ?>
 		<input type="hidden" id="wpcf7-id" name="wpcf7-id" value="<?php echo $current; ?>" />
-		<input type="text" id="wpcf7-title" name="wpcf7-title" size="40" value="<?php echo htmlspecialchars($cf['title']); ?>" />
+		<input type="text" id="wpcf7-title" name="wpcf7-title" size="40" value="<?php echo htmlspecialchars($cf['title']); ?>"<?php echo $disabled; ?> />
 
 		<div class="cfdiv">
 			<?php if (! $unsaved) : ?>
@@ -30,6 +34,7 @@
 			</p>
 			<?php endif; ?>
 
+        <?php if ($this->has_edit_cap()) : ?>
 			<div class="fieldset" id="form-content-fieldset"><div class="legend"><?php _e('Form', 'wpcf7'); ?></div>
 				<textarea id="wpcf7-form" name="wpcf7-form" cols="100" rows="16"><?php echo htmlspecialchars($cf['form']); ?></textarea>
 			</div>
@@ -79,9 +84,10 @@
 			<div>
 				<input type="submit" class="button button-highlighted" name="wpcf7-save" value="<?php _e('Save', 'wpcf7'); ?>" />
 			</div>
+        <?php endif; ?>
 		</div>
 			
-		<?php if (! $unsaved) : ?>
+		<?php if ($this->has_edit_cap() && ! $unsaved) : ?>
 		<div class="delete-link"><?php $delete_nonce = wp_create_nonce('wpcf7-delete_' . $current); ?>
 			<input type="submit" name="wpcf7-delete" value="<?php _e('Delete this contact form', 'wpcf7'); ?>"
 				<?php echo "onclick=\"if (confirm('" . js_escape(__("You are about to delete this contact form.\n  'Cancel' to stop, 'OK' to delete.", 'wpcf7')) . "')) {this.form._wpnonce.value = '$delete_nonce'; return true;} return false;\""; ?> />
