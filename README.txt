@@ -3,8 +3,8 @@ Contributors: takayukister
 Donate link: http://takayukister.chipin.com/contact-form-7-20
 Tags: contact form, email, ajax, captcha, akismet
 Requires at least: 2.2
-Tested up to: 2.7-bleeding
-Stable tag: 1.8
+Tested up to: 2.7-hemorrhage
+Stable tag: 1.8.0.1
 
 Just another contact form plugin. Simple but flexible.
 
@@ -19,9 +19,11 @@ Since being published in August 2007, Contact Form 7 has been translated into a 
 * Brazilian Portuguese (pt_BR) - [Leonardo Pinheiro](http://www.eletrikabarbarella.com.br/) (updated by Henrique Vianna)
 * Bulgarian (bg_BG) - [Iliyan Darganov](http://www.darganov.com/)
 * Catalan (ca_ES) - [Jordi Sancho](http://www.qasolutions.net/blog)
+* Chinese, Simplified (zh_CN) - [Soz](http://www.webtoolol.com/)
 * Czech (cs_CZ) - Korry
 * Danish (da_DK) - [Jens Griebel](http://www.kompas-it.dk/)
 * Dutch (nl_NL) - [Chris Devriese](http://www.100it.be/)
+* Finnish (fi) - [Miika Turunen](http://www.webwork.fi/)
 * French (fr_FR) - [Jillij](http://www.jillij.com/)
 * German (de_DE) - [Marcel Spitau](http://blog.spitau.de)
 * Hungarian (hu_HU) - [Andras Hirschler](http://hia.itblog.hu/)

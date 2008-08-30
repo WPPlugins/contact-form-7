@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.8
+Version: 1.8.0.1
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -25,7 +25,7 @@ Author URI: http://ideasilo.wordpress.com/
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-define('WPCF7_VERSION', '1.8');
+define('WPCF7_VERSION', '1.8.0.1');
 
 function wpcf7_version() {
     return WPCF7_VERSION;
@@ -635,8 +635,7 @@ var _wpcf7 = {
 		$unit_tag = 'wpcf7-f' . $id . '-' . $this->processing_within . '-o' . $this->unit_count;
 		$this->processing_unit_tag = $unit_tag;
 
-        $form = '<!-- Contact Form 7 ' . wpcf7_version() . ' -->';
-		$form .= '<div class="wpcf7" id="' . $unit_tag . '">';
+		$form = '<div class="wpcf7" id="' . $unit_tag . '">';
 		
 		$url = parse_url($_SERVER['REQUEST_URI']);
 		$url = $url['path'] . (empty($url['query']) ? '' : '?' . $url['query']) . '#' . $unit_tag;
@@ -644,6 +643,7 @@ var _wpcf7 = {
 		$form .= '<form action="' . $url . '" method="post" class="wpcf7-form">';
         $form .= '<div style="display: none;">';
 		$form .= '<input type="hidden" name="_wpcf7" value="' . $id . '" />';
+		$form .= '<input type="hidden" name="_wpcf7_version" value="' . wpcf7_version() . '" />';
 		$form .= '<input type="hidden" name="_wpcf7_unit_tag" value="' . $unit_tag . '" />';
         $form .= '</div>';
 		$form .= $this->form_elements($cf['form']);
