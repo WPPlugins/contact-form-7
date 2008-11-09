@@ -3,8 +3,8 @@ Contributors: takayukister
 Donate link: http://takayukister.chipin.com/contact-form-7-20
 Tags: contact form, email, ajax, captcha, akismet
 Requires at least: 2.2
-Tested up to: 2.7-hemorrhage
-Stable tag: 1.8.0.4
+Tested up to: 2.7-beta2
+Stable tag: 1.8.1
 
 Just another contact form plugin. Simple but flexible.
 
@@ -16,6 +16,7 @@ Contact Form 7 can manage multiple contact forms, plus you can customize the for
 
 Since being published in August 2007, Contact Form 7 has been translated into a number of languages. Our thanks and appreciation must go to the following for their contributions:
 
+* Albanian (sq) - [Olgi Zenullari](http://www.olgizenullari.com/)
 * Brazilian Portuguese (pt_BR) - [Leonardo Pinheiro](http://www.eletrikabarbarella.com.br/) (updated by Henrique Vianna)
 * Bulgarian (bg_BG) - [Iliyan Darganov](http://www.darganov.com/)
 * Catalan (ca_ES) - [Jordi Sancho](http://www.qasolutions.net/blog)
@@ -40,7 +41,7 @@ Since being published in August 2007, Contact Form 7 has been translated into a 
 * Portuguese (pt_PT) - [Hugo Baeta](http://hugobaeta.com)
 * Russian (ru_RU) - [Dmitry Volotovich](http://www.volnov.com)
 * Romanian (ro) - [Stas Sushkov](http://stas.nerd.ro/ascii/)
-* Slovene (sl_SI) - Mihael Simonič
+* Slovene (sl_SI) - [Mihael Simonič](http://smihael.bplaced.net)
 * Spanish (es_ES) - [Jordi Sancho](http://www.qasolutions.net/blog)
 (updated by [Vladimir Prieto](http://vladimir.prie.to/) and [Federico Mikaelian](http://www.fedemika.com.ar/))
 * Swedish (sv_SE) - [Fredrik Jonsson](http://www.fredda-o-ac.se/)
