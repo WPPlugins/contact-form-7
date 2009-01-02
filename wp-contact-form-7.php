@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.9
+Version: 1.9.1
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -25,7 +25,7 @@ Author URI: http://ideasilo.wordpress.com/
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-define('WPCF7_VERSION', '1.9');
+define('WPCF7_VERSION', '1.9.1');
 
 if (! defined('WP_CONTENT_DIR'))
     define('WP_CONTENT_DIR', ABSPATH . 'wp-content');
@@ -53,6 +53,9 @@ if (! defined('WPCF7_UPLOADS_TMP_DIR'))
 if (! defined('WPCF7_AUTOP'))
     define('WPCF7_AUTOP', true);
 
+if (! defined('WPCF7_USE_PIPE'))
+    define('WPCF7_USE_PIPE', true);
+
 if (! function_exists('wpcf7_version')) {
     function wpcf7_version() { return WPCF7_VERSION; }
 }
@@ -69,6 +72,7 @@ class tam_contact_form_seven {
 
 	var $contact_forms;
 	var $captcha;
+    var $posted_data;
 
 	function tam_contact_form_seven() {
 		add_action('activate_' . plugin_basename(__FILE__), array(&$this, 'set_initial'));
@@ -239,7 +243,13 @@ class tam_contact_form_seven {
             $files = array();
     
 		$contact_form = $this->upgrade($contact_form);
-        
+
+        $this->posted_data = $_POST;
+
+        if (WPCF7_USE_PIPE) {
+            $this->pipe_all_posted($contact_form);
+        }
+
         if ($this->compose_and_send_mail($contact_form['mail'], $files)) {
             if ($contact_form['mail_2']['active'])
                 $this->compose_and_send_mail($contact_form['mail_2'], $files);
@@ -276,8 +286,9 @@ class tam_contact_form_seven {
     }
     
     function mail_callback($matches) {
-        if (isset($_POST[$matches[1]])) {
-            $submitted = $_POST[$matches[1]];
+        if (isset($this->posted_data[$matches[1]])) {
+            $submitted = $this->posted_data[$matches[1]];
+            
             if (is_array($submitted))
                 $submitted = join(', ', $submitted);
             return stripslashes($submitted);
@@ -1336,9 +1347,16 @@ var _wpcf7 = {
 		$options = preg_split('/[\s]+/', trim($element[3]));
 		
 		preg_match_all('/"[^"]*"|\'[^\']*\'/', $element[4], $matches);
-		$values = $this->strip_quote_deep($matches[0]);
-		
-		return compact('type', 'name', 'options', 'values');
+		$raw_values = $this->strip_quote_deep($matches[0]);
+        
+        if (WPCF7_USE_PIPE && preg_match('/^(select[*]?|checkbox[*]?|radio)$/', $type)) {
+            $pipes = $this->get_pipes($raw_values);
+            $values = array_keys($pipes);
+        } else {
+            $values =& $raw_values;
+        }
+        
+		return compact('type', 'name', 'options', 'values', 'raw_values');
 	}
 
 	function strip_quote($text) {
@@ -1510,6 +1528,63 @@ var _wpcf7 = {
 		
 		return $op;
 	}
+
+    function pipe($pipes, $value) {
+        if (is_string($value)) {
+            if (isset($pipes[$value]))
+                return $pipes[$value];
+            else
+                return $value;
+        } elseif (is_array($value)) {
+            $results = array();
+            foreach ($value as $k => $v) {
+                $results[$k] = $this->pipe($pipes, $v);
+            }
+            return $results;
+        }
+    }
+
+    function get_pipes($values) {
+        $pipes = array();
+        
+        foreach ($values as $value) {
+            $pipe_pos = strpos($value, '|');
+            if (false === $pipe_pos) {
+                $before = $after = $value;
+            } else {
+                $before = substr($value, 0, $pipe_pos);
+                $after = substr($value, $pipe_pos + 1);
+            }
+            
+            if (! isset($pipes[$before]))
+                $pipes[$before] = $after;
+        }
+        
+        return $pipes;
+    }
+
+    function pipe_all_posted($contact_form) {
+        $all_pipes = array();
+
+        $fes = $this->form_elements($contact_form['form'], false);
+        foreach ($fes as $fe) {
+            $type = $fe['type'];
+            $name = $fe['name'];
+            $raw_values = $fe['raw_values'];
+            
+            if (! preg_match('/^(select[*]?|checkbox[*]?|radio)$/', $type))
+                continue;
+            
+            $pipes = $this->get_pipes($raw_values);
+            
+            $all_pipes[$name] = array_merge($pipes, (array) $all_pipes[$name]);
+        }
+        
+        foreach ($all_pipes as $name => $pipes) {
+            if (isset($this->posted_data[$name]))
+                $this->posted_data[$name] = $this->pipe($pipes, $this->posted_data[$name]);
+        }
+    }
 
 }
 

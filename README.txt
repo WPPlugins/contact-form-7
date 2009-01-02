@@ -4,7 +4,7 @@ Donate link: http://takayukister.chipin.com/contact-form-7-20
 Tags: contact form, email, ajax, captcha, akismet
 Requires at least: 2.5
 Tested up to: 2.7
-Stable tag: 1.9
+Stable tag: 1.9.1
 
 Just another contact form plugin. Simple but flexible.
 
@@ -18,7 +18,7 @@ Since being published in August 2007, Contact Form 7 has been translated into a 
 
 * Albanian (sq) - [Olgi Zenullari](http://www.olgizenullari.com/)
 * Arabic (ar) - [Tarek Chaaban](http://www.chaaban.info/) and Muhammed Lardi
-* Brazilian Portuguese (pt_BR) - [Leonardo Pinheiro](http://www.eletrikabarbarella.com.br/) (updated by Henrique Vianna)
+* Brazilian Portuguese (pt_BR) - [Leonardo Pinheiro](http://www.eletrikabarbarella.com.br/) (updated by [Henrique Vianna](http://henriquevianna.com/))
 * Bulgarian (bg_BG) - [Iliyan Darganov](http://www.darganov.com/)
 * Catalan (ca_ES) - [Jordi Sancho](http://www.qasolutions.net/blog)
 * Chinese, Simplified (zh_CN) - [Soz](http://www.webtoolol.com/)
@@ -28,7 +28,8 @@ Since being published in August 2007, Contact Form 7 has been translated into a 
 * Dutch (nl_NL) - [Chris Devriese](http://www.100it.be/)
 * Finnish (fi) - [Miika Turunen](http://www.webwork.fi/)
 * French (fr_FR) - [Jillij](http://www.jillij.com/)
-* German (de_DE) - [Marcel Spitau](http://blog.spitau.de)
+* Georgian (ka_GE) - [Nodar Davituri](http://omedia.ge/)
+* German (de_DE) - [Marcel Spitau](http://blog.spitau.de) (updated by [Ivan Graf](http://blog.bildergallery.com/))
 * Greek (el_EL) - [Nick Mouratidis](http://www.kepik.gr/)
 * Hebrew (he_IL) - [Yaron Ofer](http://www.gadgetguru.co.il/)
 * Hindi (hi_IN) - [Tarun Joshi](http://www.readers-cafe.net/)
@@ -42,7 +43,7 @@ Since being published in August 2007, Contact Form 7 has been translated into a 
 * Polish (pl_PL) - [Zbigniew Czernik](http://zibik.jogger.pl/)
 * Portuguese (pt_PT) - [Hugo Baeta](http://hugobaeta.com)
 * Russian (ru_RU) - [Dmitry Volotovich](http://www.volnov.com)
-* Romanian (ro) - [Stas Sushkov](http://stas.nerd.ro/ascii/)
+* Romanian (ro_RO) - [Stas Sushkov](http://stas.nerd.ro/)
 * Slovene (sl_SI) - [Mihael Simonič](http://smihael.bplaced.net)
 * Spanish (es_ES) - [Jordi Sancho](http://www.qasolutions.net/blog)
 (updated by [Vladimir Prieto](http://vladimir.prie.to/) and [Federico Mikaelian](http://www.fedemika.com.ar/))
