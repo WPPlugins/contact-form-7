@@ -4,7 +4,7 @@ Donate link: http://takayukister.chipin.com/contact-form-7-20
 Tags: contact form, email, ajax, captcha, akismet
 Requires at least: 2.5
 Tested up to: 2.7
-Stable tag: 1.9.1
+Stable tag: 1.9.2
 
 Just another contact form plugin. Simple but flexible.
 
@@ -50,6 +50,7 @@ Since being published in August 2007, Contact Form 7 has been translated into a 
 * Swedish (sv_SE) - [Fredrik Jonsson](http://www.fredda-o-ac.se/)
 * Turkish (tr_TR) - [Roman Neumuller](http://katpatuka.wordpress.com) (updated by [Hasan Yılmaz](http://hedefturkce.com/))
 * Ukrainian (uk_UA) - [Andrey Kovba](http://myserver.com.ua/)
+* Vietnamese (vi) - Thanh Hải, Hà
 
 If you have created your own language pack, or have an update of an existing one, you can send [gettext .po and .mo files](http://codex.wordpress.org/Translating_WordPress) to me so that I can bundle it into Contact Form 7.
 
@@ -68,6 +69,8 @@ Please see [FAQ](http://ideasilo.wordpress.com/2008/03/29/contact-form-7-faq/).
 
 If you have any further questions,
 please submit them [to the support forum](http://wordpress.org/tags/contact-form-7#postform).
+
+Attention: [Check your site before reporting trouble, please!](http://ideasilo.wordpress.com/2009/01/20/check-your-site-before-reporting-trouble-please/)
 
 == Screenshots ==
 
