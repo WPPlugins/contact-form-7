@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.9.2
+Version: 1.9.2.1
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -25,7 +25,7 @@ Author URI: http://ideasilo.wordpress.com/
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-define('WPCF7_VERSION', '1.9.2');
+define('WPCF7_VERSION', '1.9.2.1');
 
 if (! defined('WP_CONTENT_DIR'))
     define('WP_CONTENT_DIR', ABSPATH . 'wp-content');
@@ -250,7 +250,7 @@ class tam_contact_form_seven {
 	function mail($contact_form, $files = array()) {
         global $wp_version;
         
-        if (version_compare($wp_version, '2.7-beta1', '<')) // wp_mail() file uploading option isn't suppoted
+        if (version_compare($wp_version, '2.7', '<')) // wp_mail() file uploading option isn't suppoted
             $files = array();
     
 		$contact_form = $this->upgrade($contact_form);
@@ -445,6 +445,7 @@ class tam_contact_form_seven {
         $contact_form = $this->upgrade_160($contact_form);
         $contact_form = $this->upgrade_181($contact_form);
         $contact_form = $this->upgrade_190($contact_form);
+        $contact_form = $this->upgrade_192($contact_form);
         return $contact_form;
     }
 
@@ -484,12 +485,22 @@ class tam_contact_form_seven {
 
 		return $contact_form;
     }
+    
+    function upgrade_192($contact_form) {
+        if (! isset($contact_form['messages']) || ! is_array($contact_form['messages']))
+            $contact_form['messages'] = array();
+
+        if (! isset($contact_form['messages']['quiz_answer_not_correct']))
+            $contact_form['messages']['quiz_answer_not_correct'] = $this->default_message('quiz_answer_not_correct');
+
+		return $contact_form;
+    }
 
 /* Admin panel */
 
     function admin_menu_parent() {
         global $wp_version;
-        if (version_compare($wp_version, '2.7-alpha', '>='))
+        if (version_compare($wp_version, '2.7', '>='))
             return 'tools.php';
         else
             return 'edit.php';
@@ -1339,6 +1350,13 @@ var _wpcf7 = {
 				return $html;
 				break;
             case 'quiz':
+                if (count($raw_values) == 0 && count($values) == 0) { // default quiz
+                    $raw_values[] = '1+1=?|2';
+                    $values[] = '1+1=?';
+                }
+                    
+                $pipes = $this->get_pipes($raw_values);
+                
                 if (count($values) == 0) {
                     break;
                 } elseif (count($values) == 1) {
@@ -1346,6 +1364,9 @@ var _wpcf7 = {
                 } else {
                     $value = $values[array_rand($values)];
                 }
+                
+                $answer = $this->pipe($pipes, $value);
+                $answer = $this->canonicalize($answer);
                 
 				if (is_array($options)) {
 					$size_maxlength_array = preg_grep('%^[0-9]*[/x][0-9]*$%', $options);
@@ -1361,10 +1382,6 @@ var _wpcf7 = {
                         $atts .= ' size="40"';
                     }
 				}
-                
-                $pipes = $this->get_pipes($raw_values);
-                $answer = $this->pipe($pipes, $value);
-                $answer = $this->canonicalize($answer);
                 
                 $html = '<span class="wpcf7-quiz-label">' . $value . '</span>&nbsp;';
                 $html .= '<input type="text" name="' . $name . '"' . $atts . ' />';
