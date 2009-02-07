@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.9.2.1
+Version: 1.9.2.2
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -25,7 +25,7 @@ Author URI: http://ideasilo.wordpress.com/
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-define('WPCF7_VERSION', '1.9.2.1');
+define('WPCF7_VERSION', '1.9.2.2');
 
 if (! defined('WP_CONTENT_DIR'))
     define('WP_CONTENT_DIR', ABSPATH . 'wp-content');
@@ -188,7 +188,7 @@ class tam_contact_form_seven {
 
             $file = $_FILES[$name];
 
-            if (empty($file) && 'file*' == $fe['type']) {
+            if (empty($file['tmp_name']) && 'file*' == $fe['type']) {
                 $valid = false;
                 $reason[$name] = $this->message($contact_form, 'invalid_required');
                 continue;
@@ -250,9 +250,6 @@ class tam_contact_form_seven {
 	function mail($contact_form, $files = array()) {
         global $wp_version;
         
-        if (version_compare($wp_version, '2.7', '<')) // wp_mail() file uploading option isn't suppoted
-            $files = array();
-    
 		$contact_form = $this->upgrade($contact_form);
 
         $this->posted_data = $_POST;
@@ -280,9 +277,12 @@ class tam_contact_form_seven {
 		$mail_recipient = preg_replace_callback($regex, $callback, $mail_template['recipient']);
 		$mail_headers = "From: $mail_sender\n";
 
-        if ($mail_template['use_html'])
+        if ($attachments) {
+            $mail_headers .= "Content-Type: multipart/mixed\n";
+        } elseif ($mail_template['use_html']) {
             $mail_headers .= "Content-Type: text/html\n";
-        
+        }
+
         if ($attachments) {
             $for_this_mail = array();
             foreach ($attachments as $name => $path) {
@@ -619,6 +619,7 @@ var _wpcf7 = {
 		quizzes: "<?php echo js_escape(__('Quizzes', 'wpcf7')); ?>",
 		quizFormatDesc: "<?php echo js_escape(__("* quiz|answer (e.g. 1+1=?|2)", 'wpcf7')); ?>",
 		fileUpload: "<?php echo js_escape(__('File upload', 'wpcf7')); ?>",
+		bytes: "<?php echo js_escape(__('bytes', 'wpcf7')); ?>",
 		submit: "<?php echo js_escape(__('Submit button', 'wpcf7')); ?>",
 		tagName: "<?php echo js_escape(__('Name', 'wpcf7')); ?>",
 		isRequiredField: "<?php echo js_escape(__('Required field?', 'wpcf7')); ?>",

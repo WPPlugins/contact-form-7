@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: contact, contact form, email, ajax, captcha, akismet
 Requires at least: 2.5
 Tested up to: 2.7
-Stable tag: 1.9.2.1
+Stable tag: 1.9.2.2
 
 Just another contact form plugin. Simple but flexible.
 
@@ -37,6 +37,7 @@ Since being published in August 2007, Contact Form 7 has been translated into a 
 * Indonesian (id_ID) - [Hendry Lee](http://blogbuildingu.com/)
 * Italian (it_IT) - [Bruno](http://www.brunosalzano.com)
 * Japanese (ja) - [Takayuki Miyoshi](http://ideasilo.wordpress.com) (plugin author)
+* Korean (ko_KR) - Seong Eun Lee
 * Latvian (lv) - [Sandis Veinbergs](http://www.kleofass.lv/)
 * Norwegian (nb_NO) - Kjetil M. Bergem
 * Persian (Farsi; fa_IR) - [Mohammad Musavi](http://www.musavis.com/)
@@ -46,7 +47,7 @@ Since being published in August 2007, Contact Form 7 has been translated into a 
 * Romanian (ro_RO) - [Stas Sushkov](http://stas.nerd.ro/)
 * Slovene (sl_SI) - [Mihael Simonič](http://smihael.bplaced.net)
 * Spanish (es_ES) - [Jordi Sancho](http://www.qasolutions.net/blog)
-(updated by [Vladimir Prieto](http://vladimir.prie.to/) and [Federico Mikaelian](http://www.fedemika.com.ar/))
+(updated by [Vladimir Prieto](http://vladimir.prie.to/), [Federico Mikaelian](http://www.fedemika.com.ar/) and [Matias Baldanza](http://matiasbaldanza.com/))
 * Swedish (sv_SE) - [Fredrik Jonsson](http://www.fredda-o-ac.se/)
 * Turkish (tr_TR) - [Roman Neumuller](http://katpatuka.wordpress.com) (updated by [Hasan Yılmaz](http://hedefturkce.com/))
 * Ukrainian (uk_UA) - [Andrey Kovba](http://myserver.com.ua/)
