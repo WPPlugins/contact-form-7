@@ -4,11 +4,11 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.9.2.2
+Version: 1.9.3
 Author URI: http://ideasilo.wordpress.com/
 */
 
-/*  Copyright 2007-2008 Takayuki Miyoshi (email: takayukister at gmail.com)
+/*  Copyright 2007-2009 Takayuki Miyoshi (email: takayukister at gmail.com)
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ Author URI: http://ideasilo.wordpress.com/
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-define('WPCF7_VERSION', '1.9.2.2');
+define('WPCF7_VERSION', '1.9.3');
 
 if (! defined('WP_CONTENT_DIR'))
     define('WP_CONTENT_DIR', ABSPATH . 'wp-content');
@@ -567,6 +567,22 @@ class tam_contact_form_seven {
 			$this->update_contact_forms($contact_forms);
 			
 			wp_redirect($redirect_to);
+			exit();
+        } elseif (isset($_POST['wpcf7-copy']) && $this->has_edit_cap()) {
+			$id = $_POST['wpcf7-id'];
+			check_admin_referer('wpcf7-copy_' . $id);
+            
+            if (array_key_exists($id, $contact_forms)) {
+                $key = max(array_keys($contact_forms)) + 1;
+                $contact_forms[$key] = $contact_forms[$id];
+                $contact_forms[$key]['title'] .= '_copy';
+                $this->update_contact_forms($contact_forms);
+                $redirect_to = $base_url . '?page=' . $page . '&contactform=' . $key . '&message=created';
+            } else {
+                $redirect_to = $base_url . '?page=' . $page . '&contactform=' . $id;
+            }
+            
+            wp_redirect($redirect_to);
 			exit();
 		} elseif (isset($_POST['wpcf7-delete']) && $this->has_edit_cap()) {
 			$id = $_POST['wpcf7-id'];
