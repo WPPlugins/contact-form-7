@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.9.5
+Version: 1.9.5.1
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -25,7 +25,7 @@ Author URI: http://ideasilo.wordpress.com/
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-define('WPCF7_VERSION', '1.9.5');
+define('WPCF7_VERSION', '1.9.5.1');
 
 if (! defined('WP_CONTENT_DIR'))
     define('WP_CONTENT_DIR', ABSPATH . 'wp-content');
@@ -1553,17 +1553,21 @@ var _wpcf7 = {
     }
 
 	function cleanup_upload_files() {
-    $dir = $this->upload_tmp_dir();
-    $dir = trailingslashit($dir);
-    if ($handle = opendir($dir)) {
-      while (false !== ($file = readdir($handle))) {
-        if ($file == "." || $file == "..")
-          continue;
+        $dir = $this->upload_tmp_dir();
+        $dir = trailingslashit($dir);
+
+        if (! is_dir($dir))
+            return false;
+
+        if ($handle = opendir($dir)) {
+            while (false !== ($file = readdir($handle))) {
+                if ($file == "." || $file == "..")
+                    continue;
 
 				$stat = stat($dir . $file);
 				if ($stat['mtime'] + 60 < time()) // 60 secs
 					@ unlink($dir . $file);
-			}
+            }
 			closedir($handle);
 		}
 	}
