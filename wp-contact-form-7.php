@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 1.10.0.1
+Version: 1.10.1
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -25,7 +25,7 @@ Author URI: http://ideasilo.wordpress.com/
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-define( 'WPCF7_VERSION', '1.10.0.1' );
+define( 'WPCF7_VERSION', '1.10.1' );
 
 if ( ! defined( 'WP_CONTENT_DIR' ) )
 	define( 'WP_CONTENT_DIR', ABSPATH . 'wp-content' );
@@ -51,6 +51,9 @@ if ( ! defined( 'WPCF7_PLUGIN_BASENAME' ) )
 if ( ! defined( 'WPCF7_LOAD_JS' ) )
 	define( 'WPCF7_LOAD_JS', true );
 
+if ( ! defined( 'WPCF7_LOAD_CSS' ) )
+	define( 'WPCF7_LOAD_CSS', true );
+
 if ( ! defined( 'WPCF7_AUTOP' ) )
 	define( 'WPCF7_AUTOP', true );
 
@@ -68,6 +71,8 @@ if ( ! defined( 'WPCF7_ADMIN_READ_WRITE_CAPABILITY' ) )
 	define( 'WPCF7_ADMIN_READ_WRITE_CAPABILITY', 'publish_pages' );
 
 function wpcf7_plugin_url( $path = '' ) {
+	global $wp_version;
+
 	if ( function_exists( 'plugins_url' ) ) {
 
 		if ( version_compare( $wp_version, '2.8-beta', '<' ) ) { // Using WordPress 2.6 - 2.7.x
@@ -333,11 +338,16 @@ function wpcf7_wp_head() {
 	}
 }
 
-add_action( 'wp_head', 'wpcf7_wp_head' );
+if ( WPCF7_LOAD_CSS )
+	add_action( 'wp_head', 'wpcf7_wp_head' );
 
 function wpcf7_enqueue_scripts() {
+	$in_footer = true;
+	if ( 'header' === WPCF7_LOAD_JS )
+		$in_footer = false;
+
 	wp_enqueue_script( 'contact-form-7', wpcf7_plugin_url( 'contact-form-7.js' ),
-		array('jquery', 'jquery-form'), WPCF7_VERSION, true );
+		array('jquery', 'jquery-form'), WPCF7_VERSION, $in_footer );
 }
 
 if ( ! is_admin() && WPCF7_LOAD_JS )

@@ -3,8 +3,8 @@ Contributors: takayukister
 Donate link: http://pledgie.com/campaigns/3117
 Tags: contact, contact form, email, ajax, captcha, akismet
 Requires at least: 2.5
-Tested up to: 2.8-beta2
-Stable tag: 1.10.0.1
+Tested up to: 2.8
+Stable tag: 1.10.1
 
 Just another contact form plugin. Simple but flexible.
 
@@ -51,6 +51,7 @@ Since being published in August 2007, Contact Form 7 has been translated into a 
 * Russian (ru_RU) - [Dmitry Volotovich](http://www.volnov.com)
 * Romanian (ro_RO) - [Stas Sushkov](http://stas.nerd.ro/)
 * Serbian (sr_RS) - [Vedran](http://www.seorabbit.com/)
+* Slovak (sk) - [Patrik Bóna](http://www.mrhead.sk/)
 * Slovene (sl_SI) - [Mihael Simonič](http://smihael.bplaced.net)
 * Spanish (es_ES) - [Jordi Sancho](http://www.qasolutions.net/blog)
 (updated by [Vladimir Prieto](http://vladimir.prie.to/), [Federico Mikaelian](http://www.fedemika.com.ar/) and [Matias Baldanza](http://matiasbaldanza.com/))
@@ -82,3 +83,7 @@ Attention: [Check your site before reporting trouble, please!](http://ideasilo.w
 == Screenshots ==
 
 1. screenshot-1.png
+
+== Changelog ==
+
+[See change logs in author's blog.](http://ideasilo.wordpress.com/tag/contact-form-7/)
