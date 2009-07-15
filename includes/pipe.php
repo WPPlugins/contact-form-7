@@ -1,72 +1,66 @@
 <?php
 
-function wpcf7_pipe( $pipes, $value ) {
-	if ( is_array( $value ) ) {
-		$results = array();
-		foreach ( $value as $k => $v ) {
-			$results[$k] = wpcf7_pipe( $pipes, $v );
-		}
-		return $results;
-	}
+class WPCF7_Pipe {
 
-	foreach ( $pipes as $p ) {
-		if ( $p[0] == $value )
-			return $p[1];
-	}
+	var $before = '';
+	var $after = '';
 
-	return $value;
-}
-
-function wpcf7_get_pipe_ins( $pipes ) {
-	$ins = array();
-	foreach ( $pipes as $pipe ) {
-		$in = $pipe[0];
-		if ( ! in_array( $in, $ins ) )
-			$ins[] = $in;
-	}
-	return $ins;
-}
-
-function wpcf7_get_pipes( $values ) {
-	$pipes = array();
-
-	foreach ( $values as $value ) {
-		$pipe_pos = strpos( $value, '|' );
+	function WPCF7_Pipe( $text ) {
+		$pipe_pos = strpos( $text, '|' );
 		if ( false === $pipe_pos ) {
-			$before = $after = $value;
+			$this->before = $this->after = $text;
 		} else {
-			$before = substr( $value, 0, $pipe_pos );
-			$after = substr( $value, $pipe_pos + 1 );
+			$this->before = substr( $text, 0, $pipe_pos );
+			$this->after = substr( $text, $pipe_pos + 1 );
 		}
-
-		$pipes[] = array( $before, $after );
 	}
-
-	return $pipes;
 }
 
-function wpcf7_pipe_all_posted( $contact_form ) {
-	global $wpcf7_posted_data;
+class WPCF7_Pipes {
 
-	$all_pipes = array();
+	var $pipes = array();
 
-	$fes = $contact_form->form_elements( false );
-	foreach ( $fes as $fe ) {
-		$type = $fe['type'];
-		$name = $fe['name'];
-		$raw_values = $fe['raw_values'];
+	function WPCF7_Pipes( $texts ) {
+		if ( ! is_array( $texts ) )
+			return;
 
-		if ( ! preg_match( '/^(select[*]?|checkbox[*]?|radio)$/', $type ) )
-			continue;
-
-		$pipes = wpcf7_get_pipes( $raw_values );
-
-		$all_pipes[$name] = array_merge( $pipes, (array) $all_pipes[$name] );
+		foreach ( $texts as $text ) {
+			$this->add_pipe( $text );
+		}
 	}
 
-	foreach ( $all_pipes as $name => $pipes ) {
-		if ( isset( $wpcf7_posted_data[$name] ) )
-			$wpcf7_posted_data[$name] = wpcf7_pipe( $pipes, $wpcf7_posted_data[$name] );
+	function add_pipe( $text ) {
+		$pipe = new WPCF7_Pipe( $text );
+		$this->pipes[] = $pipe;
+	}
+
+	function do_pipe( $before ) {
+		foreach ( $this->pipes as $pipe ) {
+			if ( $pipe->before == $before )
+				return $pipe->after;
+		}
+		return $before;
+	}
+
+	function collect_befores() {
+		$befores = array();
+
+		foreach ( $this->pipes as $pipe ) {
+			$befores[] = $pipe->before;
+		}
+
+		return $befores;
+	}
+
+	function zero() {
+		return empty( $this->pipes );
+	}
+
+	function random_pipe() {
+		if ( $this->zero() )
+			return null;
+
+		return $this->pipes[array_rand( $this->pipes )];
 	}
 }
 

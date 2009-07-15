@@ -1,18 +1,15 @@
-<?php if ( ! version_compare( $wp_version, '2.7', '>=' ) && isset( $updated_message ) ) : ?>
-<div id="message" class="updated fade"><p><strong><?php echo $updated_message; ?></strong></p></div>
-<?php endif; ?>
 <div class="wrap wpcf7">
-    <?php if ( function_exists( 'screen_icon' ) ) screen_icon(); ?>
+    <?php screen_icon( 'tools' ); ?>
     <h2><?php _e( 'Contact Form 7', 'wpcf7' ); ?></h2>
     <?php wpcf7_donation_link(); ?>
-    <?php if ( version_compare( $wp_version, '2.7', '>=' ) && isset( $updated_message ) ) : ?>
-    <div id="message" class="updated fade"><p><strong><?php echo $updated_message; ?></strong></p></div>
+    <?php if ( isset( $updated_message ) ) : ?>
+    <div id="message" class="updated fade"><p><?php echo $updated_message; ?></p></div>
     <?php endif; ?>
 
     <ul class="subsubsub">
-        <?php foreach ( $contact_forms as $k => $v ) : ?>
-        <li><a href="<?php echo $base_url . '?page=' . $page . '&contactform=' . $k ?>"<?php if ( $k == $current ) echo ' class="current"'; ?>>
-            <?php echo $v['title']; ?></a> |</li>
+        <?php foreach ( $contact_forms as $v ) : ?>
+        <li><a href="<?php echo $base_url . '?page=' . $page . '&contactform=' . $v->id ?>"<?php if ( $v->id == $current ) echo ' class="current"'; ?>>
+            <?php echo $v->title; ?></a> |</li>
         <?php endforeach; ?>
 
         <?php if ( wpcf7_admin_has_edit_cap() ) : ?>
@@ -120,9 +117,6 @@
 				</div>
 				<div class="mail-field">
 					<label for="wpcf7-mail-attachments"><?php _e( 'File attachments:', 'wpcf7' ); ?></label>
-                        <?php if ( version_compare( $wp_version, '2.7', '<' ) ) : ?>
-                        <span style="color: #ff3300; margin-left: 0.5em;"><?php _e( '(You need WordPress 2.7 or greater to use this feature)', 'wpcf7' ); ?></span>
-                        <?php endif; ?>
                         <br />
 					<input type="text" id="wpcf7-mail-attachments" name="wpcf7-mail-attachments" class="wide" size="70" value="<?php echo htmlspecialchars( $cf->mail['attachments'] ); ?>" />
 				</div>
@@ -176,9 +170,6 @@
 				</div>
 				<div class="mail-field">
 					<label for="wpcf7-mail-2-attachments"><?php _e( 'File attachments:', 'wpcf7' ); ?></label>
-                        <?php if ( version_compare( $wp_version, '2.7', '<' ) ) : ?>
-                        <span style="color: #ff3300; margin-left: 0.5em;"><?php _e( '(You need WordPress 2.7 or greater to use this feature)', 'wpcf7' ); ?></span>
-                        <?php endif; ?>
                         <br />
 					<input type="text" id="wpcf7-mail-2-attachments" name="wpcf7-mail-2-attachments" class="wide" size="70" value="<?php echo htmlspecialchars( $cf->mail_2['attachments'] ); ?>" />
 				</div>
@@ -279,8 +270,6 @@
             </tr>
         </tbody>
     </table>
-
-    <input type="hidden" id="wpcf7-options-recipient" name="wpcf7-options-recipient" value="<?php echo htmlspecialchars( $cf->options['recipient'] ); ?>" />
 
     <table class="widefat" style="margin-top: 1em;">
         <tbody>
