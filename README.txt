@@ -4,7 +4,7 @@ Donate link: http://pledgie.com/campaigns/3117
 Tags: contact, contact form, email, ajax, captcha, akismet
 Requires at least: 2.7
 Tested up to: 2.9-rare
-Stable tag: 2.0
+Stable tag: 2.0.1
 
 Just another contact form plugin. Simple but flexible.
 
@@ -20,6 +20,7 @@ Since being published in August 2007, Contact Form 7 has been translated into a 
 
 * Albanian (sq) - [Olgi Zenullari](http://www.olgizenullari.com/)
 * Arabic (ar) - [Tarek Chaaban](http://www.chaaban.info/) and Muhammed Lardi
+* Bangla (bn_BD) - [SM Mehdi Akram](http://www.shamokaldarpon.com/)
 * Bosnian (bs) - [Vedran](http://www.seorabbit.com/)
 * Brazilian Portuguese (pt_BR) - [Leonardo Pinheiro](http://www.eletrikabarbarella.com.br/) (updated by [Henrique Vianna](http://henriquevianna.com/))
 * Bulgarian (bg_BG) - [Iliyan Darganov](http://www.darganov.com/)
@@ -32,7 +33,7 @@ Since being published in August 2007, Contact Form 7 has been translated into a 
 * Dutch (nl_NL) - [Chris Devriese](http://www.100it.be/) (updated by [Martin Hein](http://www.split-a-pixel.nl/))
 * Estonian (et) - [Peeter Rahuvarm](http://www.kraabus.ee)
 * Finnish (fi) - [Miika Turunen](http://www.webwork.fi/)
-* French (fr_FR) - [Jillij](http://www.jillij.com/)
+* French (fr_FR) - [Jillij](http://www.jillij.com/) (updated by [Maître Mô](http://maitremo.fr/))
 * Georgian (ka_GE) - [Nodar Davituri](http://omedia.ge/)
 * German (de_DE) - [Marcel Spitau](http://blog.spitau.de) (updated by [Ivan Graf](http://blog.bildergallery.com/))
 * Greek (el) - [Nick Mouratidis](http://www.kepik.gr/) (updated by [Pr. friedlich](http://friedlich.wordpress.com/))
@@ -67,7 +68,7 @@ If you have created your own language pack, or have an update of an existing one
 1. Upload the entire `contact-form-7` folder to the `/wp-content/plugins/` directory.
 1. Activate the plugin through the 'Plugins' menu in WordPress.
 
-You will find 'Contact Form 7' menu in your WordPress admin panel.
+You will find 'Contact' menu in your WordPress admin panel.
 
 For basic usage, you can also have a look at the [plugin homepage](http://ideasilo.wordpress.com/2007/04/30/contact-form-7/) and [FAQ](http://ideasilo.wordpress.com/2008/03/29/contact-form-7-faq/).
 

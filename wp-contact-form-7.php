@@ -4,7 +4,7 @@ Plugin Name: Contact Form 7
 Plugin URI: http://ideasilo.wordpress.com/2007/04/30/contact-form-7/
 Description: Just another contact form plugin. Simple but flexible.
 Author: Takayuki Miyoshi
-Version: 2.0
+Version: 2.0.1
 Author URI: http://ideasilo.wordpress.com/
 */
 
@@ -25,7 +25,7 @@ Author URI: http://ideasilo.wordpress.com/
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-define( 'WPCF7_VERSION', '2.0' );
+define( 'WPCF7_VERSION', '2.0.1' );
 
 if ( ! defined( 'WPCF7_PLUGIN_DIR' ) )
 	define( 'WPCF7_PLUGIN_DIR', WP_PLUGIN_DIR . '/' . plugin_basename( dirname( __FILE__ ) ) );
@@ -38,6 +38,9 @@ if ( ! defined( 'WPCF7_PLUGIN_MODULES_DIR' ) )
 
 if ( ! defined( 'WPCF7_PLUGIN_BASENAME' ) )
 	define( 'WPCF7_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
+
+if ( ! defined( 'WPCF7_PLUGIN_NAME' ) )
+	define( 'WPCF7_PLUGIN_NAME', trim( dirname( WPCF7_PLUGIN_BASENAME ), '/' ) );
 
 if ( ! defined( 'WPCF7_LOAD_JS' ) )
 	define( 'WPCF7_LOAD_JS', true );
@@ -79,6 +82,14 @@ function wpcf7_table_name() {
 	global $wpdb;
 
 	return $wpdb->prefix . "contact_form_7";
+}
+
+function wpcf7_table_exists() {
+	global $wpdb;
+
+	$table_name = wpcf7_table_name();
+
+	return $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) == $table_name;
 }
 
 // Pre-2.8 compatibility
