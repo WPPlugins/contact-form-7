@@ -36,8 +36,12 @@ class WPCF7_ContactForm {
 	function form_html() {
 		$form = '<div class="wpcf7" id="' . $this->unit_tag . '">';
 
-		$url = parse_url( $_SERVER['REQUEST_URI'] );
-		$url = $url['path'] . ( empty( $url['query'] ) ? '' : '?' . $url['query'] ) . '#' . $this->unit_tag;
+		$url = wpcf7_get_request_uri();
+
+		if ( $frag = strstr( $uri, '#' ) )
+			$uri = substr( $uri, 0, -strlen( $frag ) );
+
+		$url .= '#' . $this->unit_tag;
 
 		$enctype = apply_filters( 'wpcf7_form_enctype', '' );
 
@@ -430,13 +434,13 @@ class WPCF7_ContactForm {
 		$table_name = wpcf7_table_name();
 
 		if ( $this->initial ) {
-			$result = $wpdb->insert( $table_name, array(
+			$result = $wpdb->insert( $table_name, stripslashes_deep( array(
 				'title' => $this->title,
 				'form' => maybe_serialize( $this->form ),
 				'mail' => maybe_serialize( $this->mail ),
 				'mail_2' => maybe_serialize ( $this->mail_2 ),
 				'messages' => maybe_serialize( $this->messages ),
-				'additional_settings' => maybe_serialize( $this->additional_settings ) ) );
+				'additional_settings' => maybe_serialize( $this->additional_settings ) ) ) );
 
 			if ( $result ) {
 				$this->initial = false;
@@ -451,14 +455,14 @@ class WPCF7_ContactForm {
 			if ( ! (int) $this->id )
 				return false; // Missing ID
 
-			$result = $wpdb->update( $table_name, array(
+			$result = $wpdb->update( $table_name, stripslashes_deep( array(
 				'title' => $this->title,
 				'form' => maybe_serialize( $this->form ),
 				'mail' => maybe_serialize( $this->mail ),
 				'mail_2' => maybe_serialize ( $this->mail_2 ),
 				'messages' => maybe_serialize( $this->messages ),
 				'additional_settings' => maybe_serialize( $this->additional_settings )
-				), array( 'cf7_unit_id' => absint( $this->id) ) );
+				) ), array( 'cf7_unit_id' => absint( $this->id) ) );
 
 			if ( false !== $result ) {
 				do_action_ref_array( 'wpcf7_after_update', array( &$this ) );
