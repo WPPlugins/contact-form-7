@@ -47,7 +47,9 @@ function wpcf7_default_form_template() {
 function wpcf7_default_mail_template() {
 	$subject = '[your-subject]';
 	$sender = '[your-name] <[your-email]>';
-	$body = '[your-message]';
+	$body = __( 'Message body:', 'wpcf7' ) . "\n" . '[your-message]' . "\n\n" . '--' . "\n"
+		. __( "This mail is created by Contact Form 7 plugin for WordPress.", 'wpcf7' )
+		. "\n\n" . __( 'Contact Form 7', 'wpcf7' ) . "\n" . 'http://contactform7.com';
 	$recipient = get_option( 'admin_email' );
 	return compact( 'subject', 'sender', 'body', 'recipient' );
 }
@@ -74,10 +76,12 @@ function wpcf7_default_messages_template() {
 	$upload_failed = wpcf7_default_message( 'upload_failed' );
 	$upload_file_type_invalid = wpcf7_default_message( 'upload_file_type_invalid' );
 	$upload_file_too_large = wpcf7_default_message( 'upload_file_too_large' );
+	$upload_failed_php_error = wpcf7_default_message( 'upload_failed_php_error' );
 
 	return compact( 'mail_sent_ok', 'mail_sent_ng', 'akismet_says_spam',
 		'validation_error', 'accept_terms', 'invalid_email', 'invalid_required', 'quiz_answer_not_correct',
-		'captcha_not_match', 'upload_failed', 'upload_file_type_invalid', 'upload_file_too_large' );
+		'captcha_not_match', 'upload_failed', 'upload_file_type_invalid', 'upload_file_too_large',
+		'upload_failed_php_error' );
 }
 
 function wpcf7_upload_dir( $type = false ) {

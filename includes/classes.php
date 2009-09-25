@@ -20,6 +20,8 @@ class WPCF7_ContactForm {
 	var $posted_data;
 	var $uploaded_files;
 
+	var $skip_mail = false;
+
 	// Return true if this form is the same one as currently POSTed.
 	function is_posted() {
 		if ( ! isset( $_POST['_wpcf7_unit_tag'] ) || empty( $_POST['_wpcf7_unit_tag'] ) )
@@ -43,14 +45,21 @@ class WPCF7_ContactForm {
 
 		$url .= '#' . $this->unit_tag;
 
+		$url = apply_filters( 'wpcf7_form_action_url', $url );
+		$url = sanitize_url( $url );
+
 		$enctype = apply_filters( 'wpcf7_form_enctype', '' );
 
-		$form .= '<form action="' . $url . '" method="post" class="wpcf7-form"' . $enctype . '>';
-		$form .= '<div style="display: none;">';
-		$form .= '<input type="hidden" name="_wpcf7" value="' . $this->id . '" />';
-		$form .= '<input type="hidden" name="_wpcf7_version" value="' . WPCF7_VERSION . '" />';
-		$form .= '<input type="hidden" name="_wpcf7_unit_tag" value="' . $this->unit_tag . '" />';
-		$form .= '</div>';
+		$form .= '<form action="' . $url
+			. '" method="post" class="wpcf7-form"' . $enctype . '>' . "\n";
+		$form .= '<div style="display: none;">' . "\n";
+		$form .= '<input type="hidden" name="_wpcf7" value="'
+			. esc_attr( $this->id ) . '" />' . "\n";
+		$form .= '<input type="hidden" name="_wpcf7_version" value="'
+			. esc_attr( WPCF7_VERSION ) . '" />' . "\n";
+		$form .= '<input type="hidden" name="_wpcf7_unit_tag" value="'
+			. esc_attr( $this->unit_tag ) . '" />' . "\n";
+		$form .= '</div>' . "\n";
 		$form .= $this->form_elements();
 
 		if ( ! $this->responses_count )
@@ -306,6 +315,11 @@ class WPCF7_ContactForm {
 			$this->posted_data[$name] = $value;
 		}
 
+		do_action_ref_array( 'wpcf7_before_send_mail', array( &$this ) );
+
+		if ( $this->skip_mail )
+			return true;
+
 		if ( $this->compose_and_send_mail( $this->mail ) ) {
 			if ( $this->mail_2['active'] )
 				$this->compose_and_send_mail( $this->mail_2 );
@@ -433,14 +447,17 @@ class WPCF7_ContactForm {
 
 		$table_name = wpcf7_table_name();
 
+		$fields = array(
+			'title' => maybe_serialize( stripslashes_deep( $this->title ) ),
+			'form' => maybe_serialize( stripslashes_deep( $this->form ) ),
+			'mail' => maybe_serialize( stripslashes_deep( $this->mail ) ),
+			'mail_2' => maybe_serialize ( stripslashes_deep( $this->mail_2 ) ),
+			'messages' => maybe_serialize( stripslashes_deep( $this->messages ) ),
+			'additional_settings' =>
+				maybe_serialize( stripslashes_deep( $this->additional_settings ) ) );
+
 		if ( $this->initial ) {
-			$result = $wpdb->insert( $table_name, stripslashes_deep( array(
-				'title' => $this->title,
-				'form' => maybe_serialize( $this->form ),
-				'mail' => maybe_serialize( $this->mail ),
-				'mail_2' => maybe_serialize ( $this->mail_2 ),
-				'messages' => maybe_serialize( $this->messages ),
-				'additional_settings' => maybe_serialize( $this->additional_settings ) ) ) );
+			$result = $wpdb->insert( $table_name, $fields );
 
 			if ( $result ) {
 				$this->initial = false;
@@ -455,14 +472,8 @@ class WPCF7_ContactForm {
 			if ( ! (int) $this->id )
 				return false; // Missing ID
 
-			$result = $wpdb->update( $table_name, stripslashes_deep( array(
-				'title' => $this->title,
-				'form' => maybe_serialize( $this->form ),
-				'mail' => maybe_serialize( $this->mail ),
-				'mail_2' => maybe_serialize ( $this->mail_2 ),
-				'messages' => maybe_serialize( $this->messages ),
-				'additional_settings' => maybe_serialize( $this->additional_settings )
-				) ), array( 'cf7_unit_id' => absint( $this->id) ) );
+			$result = $wpdb->update( $table_name, $fields,
+				array( 'cf7_unit_id' => absint( $this->id) ) );
 
 			if ( false !== $result ) {
 				do_action_ref_array( 'wpcf7_after_update', array( &$this ) );
