@@ -4,7 +4,7 @@ Donate link: http://pledgie.com/campaigns/3117
 Tags: contact, contact form, email, ajax, captcha, akismet, WPML, multilingual
 Requires at least: 2.7
 Tested up to: 2.9-rare
-Stable tag: 2.0.5
+Stable tag: 2.0.6
 
 Just another contact form plugin. Simple but flexible.
 
@@ -26,7 +26,7 @@ Contact Form 7 can manage multiple contact forms, plus you can customize the for
 * Chinese, Simplified (zh_CN) - [Soz](http://www.webtoolol.com/)
 * Chinese, Traditional (zh_TW) - [James Wu](http://jameswublog.com)
 * Croatian (hr) - [tolingo Translation Services](http://www.tolingo.com)
-* Czech (cs_CZ) - Korry
+* Czech (cs_CZ) - Korry, [Radovan Fiser](http://algymsa.cz/)
 * Danish (da_DK) - [Jens Griebel](http://www.kompas-it.dk/), [Georg S. Adamsen](http://wordpress.blogos.dk/)
 * Dutch (nl_NL) - [Chris Devriese](http://www.100it.be/), [Martin Hein](http://www.split-a-pixel.nl/)
 * Estonian (et) - [Peeter Rahuvarm](http://www.kraabus.ee)

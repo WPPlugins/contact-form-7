@@ -169,7 +169,7 @@ class WPCF7_ContactForm {
 	}
 
 	function form_elements() {
-		$form = $this->form_do_shortcode();
+		$form = apply_filters( 'wpcf7_form_elements', $this->form_do_shortcode() );
 
 		// Response output
 		$response_regex = '%\[\s*response\s*\]%';
@@ -192,13 +192,7 @@ class WPCF7_ContactForm {
 		$result = array( 'valid' => true, 'reason' => array() );
 
 		foreach ( $fes as $fe ) {
-			$type = $fe['type'];
-			$name = $fe['name'];
-
-			if ( empty( $name ) )
-				continue;
-
-			$result = apply_filters( 'wpcf7_validate_' . $type, $result, $fe );
+			$result = apply_filters( 'wpcf7_validate_' . $fe['type'], $result, $fe );
 		}
 
 		return $result;
@@ -315,6 +309,9 @@ class WPCF7_ContactForm {
 			$this->posted_data[$name] = $value;
 		}
 
+		if ( $this->in_demo_mode() )
+			$this->skip_mail = true;
+
 		do_action_ref_array( 'wpcf7_before_send_mail', array( &$this ) );
 
 		if ( $this->skip_mail )
@@ -334,19 +331,22 @@ class WPCF7_ContactForm {
 		$regex = '/\[\s*([a-zA-Z][0-9a-zA-Z:._-]*)\s*\]/';
 		$callback = array( &$this, 'mail_callback' );
 
-		$mail_subject = preg_replace_callback( $regex, $callback, $mail_template['subject'] );
-		$mail_sender = preg_replace_callback( $regex, $callback, $mail_template['sender'] );
-		$mail_body = preg_replace_callback( $regex, $callback, $mail_template['body'] );
-		$mail_recipient = preg_replace_callback( $regex, $callback, $mail_template['recipient'] );
+		$subject = preg_replace_callback( $regex, $callback, $mail_template['subject'] );
+		$sender = preg_replace_callback( $regex, $callback, $mail_template['sender'] );
+		$body = preg_replace_callback( $regex, $callback, $mail_template['body'] );
+		$recipient = preg_replace_callback( $regex, $callback, $mail_template['recipient'] );
+		$additional_headers =
+			preg_replace_callback( $regex, $callback, $mail_template['additional_headers'] );
 
-		$mail_headers = "From: $mail_sender\n";
+		extract( apply_filters( 'wpcf7_mail_components',
+			compact( 'subject', 'sender', 'body', 'recipient', 'additional_headers' ) ) );
+
+		$headers = "From: $sender\n";
 
 		if ( $mail_template['use_html'] )
-			$mail_headers .= "Content-Type: text/html\n";
+			$headers .= "Content-Type: text/html\n";
 
-		$mail_additional_headers = preg_replace_callback( $regex, $callback,
-			$mail_template['additional_headers'] );
-		$mail_headers .= trim( $mail_additional_headers ) . "\n";
+		$headers .= trim( $additional_headers ) . "\n";
 
 		if ( $this->uploaded_files ) {
 			$for_this_mail = array();
@@ -356,10 +356,9 @@ class WPCF7_ContactForm {
 				$for_this_mail[] = $path;
 			}
 
-			return @wp_mail( $mail_recipient, $mail_subject, $mail_body, $mail_headers,
-				$for_this_mail );
+			return @wp_mail( $recipient, $subject, $body, $headers, $for_this_mail );
 		} else {
-			return @wp_mail( $mail_recipient, $mail_subject, $mail_body, $mail_headers );
+			return @wp_mail( $recipient, $subject, $body, $headers );
 		}
 	}
 
@@ -416,6 +415,17 @@ class WPCF7_ContactForm {
 		}
 
 		return $values;
+	}
+
+	function in_demo_mode() {
+		$settings = $this->additional_setting( 'demo_mode', false );
+
+		foreach ( $settings as $setting ) {
+			if ( in_array( $setting, array( 'on', 'true', '1' ) ) )
+				return true;
+		}
+
+		return false;
 	}
 
 	/* Upgrade */
