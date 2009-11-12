@@ -1,664 +1,137 @@
 <?php
 
-if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
-
-use RockLobsterInc\Swv\Rules\FileRule;
-
-/**
- * Replaces double line breaks with paragraph elements.
- *
- * @param string $input The text which has to be formatted.
- * @param bool $br Optional. If set, this will convert all remaining
- *             line breaks after paragraphing. Default true.
- * @return string Text which has been converted into correct paragraph tags.
- */
-function wpcf7_autop( $input, $br = true ) {
-	$placeholders = array();
-
-	// Replace non-HTML embedded elements with placeholders.
-	$input = preg_replace_callback(
-		'/<(math|svg).*?<\/\1>/is',
-		static function ( $matches ) use ( &$placeholders ) {
-			$placeholder = sprintf(
-				'<%1$s id="%2$s" />',
-				WPCF7_HTMLFormatter::placeholder_inline,
-				hash( 'sha256', $matches[0] )
-			);
-
-			list( $placeholder ) =
-				WPCF7_HTMLFormatter::normalize_start_tag( $placeholder );
-
-			$placeholders[$placeholder] = $matches[0];
-
-			return $placeholder;
-		},
-		$input
-	);
-
-	$formatter = new WPCF7_HTMLFormatter( array(
-		'auto_br' => $br,
-		'allowed_html' => null,
-	) );
-
-	$chunks = $formatter->separate_into_chunks( $input );
-
-	$output = $formatter->format( $chunks );
-
-	// Restore from placeholders.
-	$output = str_replace(
-		array_keys( $placeholders ),
-		array_values( $placeholders ),
-		$output
-	);
-
-	return $output;
-}
-
-
-/**
- * Newline preservation help function for wpcf7_autop().
- *
- * @deprecated 5.7 Unnecessary to use any more.
- *
- * @param array $matches preg_replace_callback() matches array.
- * @return string Text including newline placeholders.
- */
-function wpcf7_autop_preserve_newline_callback( $matches ) {
-	return str_replace( "\n", '<WPPreserveNewline />', $matches[0] );
-}
-
-
-/**
- * Sanitizes the query variables.
- *
- * @param string $text Query variable.
- * @return string Text sanitized.
- */
-function wpcf7_sanitize_query_var( $text ) {
-	$text = wp_unslash( $text );
-	$text = wp_scrub_utf8( $text );
-
-	if ( str_contains( $text, '<' ) ) {
-		$text = wp_pre_kses_less_than( $text );
-		$text = wp_strip_all_tags( $text );
+function wpcf7_autop( $pee, $br = 1 ) {
+	if ( trim($pee) === '' )
+		return '';
+	$pee = $pee . "\n"; // just to make things a little easier, pad the end
+	$pee = preg_replace( '|<br />\s*<br />|', "\n\n", $pee );
+	// Space things out a little
+	/* wpcf7: removed select and input */
+	$allblocks = '(?:table|thead|tfoot|caption|col|colgroup|tbody|tr|td|th|div|dl|dd|dt|ul|ol|li|pre|form|map|area|blockquote|address|math|style|p|h[1-6]|hr)';
+	$pee = preg_replace( '!(<' . $allblocks . '[^>]*>)!', "\n$1", $pee );
+	$pee = preg_replace( '!(</' . $allblocks . '>)!', "$1\n\n", $pee );
+	$pee = str_replace( array( "\r\n", "\r" ), "\n", $pee ); // cross-platform newlines
+	if ( strpos( $pee, '<object' ) !== false ) {
+		$pee = preg_replace( '|\s*<param([^>]*)>\s*|', "<param$1>", $pee ); // no pee inside object/embed
+		$pee = preg_replace( '|\s*</embed>\s*|', '</embed>', $pee );
 	}
+	$pee = preg_replace( "/\n\n+/", "\n\n", $pee ); // take care of duplicates
+	// make paragraphs, including one at the end
+	$pees = preg_split( '/\n\s*\n/', $pee, -1, PREG_SPLIT_NO_EMPTY );
+	$pee = '';
+	foreach ( $pees as $tinkle )
+		$pee .= '<p>' . trim( $tinkle, "\n" ) . "</p>\n";
+	$pee = preg_replace( '|<p>\s*</p>|', '', $pee ); // under certain strange conditions it could create a P of entirely whitespace
+	$pee = preg_replace( '!<p>([^<]+)</(div|address|form)>!', "<p>$1</p></$2>", $pee );
+	$pee = preg_replace( '!<p>\s*(</?' . $allblocks . '[^>]*>)\s*</p>!', "$1", $pee ); // don't pee all over a tag
+	$pee = preg_replace( "|<p>(<li.+?)</p>|", "$1", $pee ); // problem with nested lists
+	$pee = preg_replace( '|<p><blockquote([^>]*)>|i', "<blockquote$1><p>", $pee );
+	$pee = str_replace( '</blockquote></p>', '</p></blockquote>', $pee );
+	$pee = preg_replace( '!<p>\s*(</?' . $allblocks . '[^>]*>)!', "$1", $pee );
+	$pee = preg_replace( '!(</?' . $allblocks . '[^>]*>)\s*</p>!', "$1", $pee );
+	if ( $br ) {
+		/* wpcf7: add textarea */
+		$pee = preg_replace_callback( '/<(script|style|textarea).*?<\/\\1>/s', create_function( '$matches', 'return str_replace("\n", "<WPPreserveNewline />", $matches[0]);' ), $pee );
+		$pee = preg_replace( '|(?<!<br />)\s*\n|', "<br />\n", $pee ); // optionally make line breaks
+		$pee = str_replace( '<WPPreserveNewline />', "\n", $pee );
+	}
+	$pee = preg_replace( '!(</?' . $allblocks . '[^>]*>)\s*<br />!', "$1", $pee );
+	$pee = preg_replace( '!<br />(\s*</?(?:p|li|div|dl|dd|dt|th|pre|td|ul|ol)[^>]*>)!', '$1', $pee );
+	if ( strpos( $pee, '<pre' ) !== false )
+		$pee = preg_replace_callback( '!(<pre[^>]*>)(.*?)</pre>!is', 'clean_pre', $pee );
+	$pee = preg_replace( "|\n</p>$|", '</p>', $pee );
+	/* wpcf7: replaced to wpcf7_get_shortcode_regex ( -> comment out) */
+	// don't auto-p wrap shortcodes that stand alone
+	// $pee = preg_replace( '/<p>\s*?(' . wpcf7_get_shortcode_regex() . ')\s*<\/p>/s', '$1', $pee );
 
-	$text = preg_replace( '/%[a-f0-9]{2}/i', '', $text );
-	$text = preg_replace( '/ +/', ' ', $text );
-	$text = trim( $text, ' ' );
-
-	return $text;
+	return $pee;
 }
 
-
-/**
- * Strips quote characters surrounding the input.
- *
- * @param string $text Input text.
- * @return string Processed output.
- */
 function wpcf7_strip_quote( $text ) {
-	$text = wpcf7_strip_whitespaces( $text );
-
-	if ( preg_match( '/^"(.*)"$/s', $text, $matches ) ) {
+	$text = trim( $text );
+	if ( preg_match( '/^"(.*)"$/', $text, $matches ) )
 		$text = $matches[1];
-	} elseif ( preg_match( "/^'(.*)'$/s", $text, $matches ) ) {
+	elseif ( preg_match( "/^'(.*)'$/", $text, $matches ) )
 		$text = $matches[1];
-	}
-
 	return $text;
 }
 
+function wpcf7_strip_quote_deep( $arr ) {
+	if ( is_string( $arr ) )
+		return wpcf7_strip_quote( $arr );
 
-/**
- * Navigates through an array, object, or scalar, and
- * strips quote characters surrounding the each value.
- *
- * @param mixed $input The array or string to be processed.
- * @return mixed Processed value.
- */
-function wpcf7_strip_quote_deep( $input ) {
-	if ( is_string( $input ) ) {
-		return wpcf7_strip_quote( $input );
-	}
-
-	if ( is_array( $input ) ) {
+	if ( is_array( $arr ) ) {
 		$result = array();
-
-		foreach ( $input as $key => $text ) {
-			$result[$key] = wpcf7_strip_quote_deep( $text );
+		foreach ( $arr as $key => $text ) {
+			$result[$key] = wpcf7_strip_quote( $text );
 		}
-
 		return $result;
 	}
 }
 
+function wpcf7_canonicalize( $text ) {
+	if ( function_exists( 'mb_convert_kana' ) && 'UTF-8' == get_option( 'blog_charset' ) )
+		$text = mb_convert_kana( $text, 'asKV', 'UTF-8' );
 
-/**
- * Normalizes newline characters.
- *
- * @param string $text Input text.
- * @param string $to Optional. The newline character that is used in the output.
- * @return string Normalized text.
- */
-function wpcf7_normalize_newline( $text, $to = "\n" ) {
-	if ( ! is_string( $text ) ) {
-		return $text;
-	}
-
-	$nls = array( "\r\n", "\r", "\n" );
-
-	if ( ! in_array( $to, $nls, true ) ) {
-		return $text;
-	}
-
-	return str_replace( $nls, $to, $text );
+	$text = strtolower( $text );
+	$text = trim( $text );
+	return $text;
 }
 
+function wpcf7_sanitize_file_name( $filename ) {
+	/* Memo:
+	// This function does sanitization introduced in http://core.trac.wordpress.org/ticket/11122
+	// WordPress 2.8.6 will implement it in sanitize_file_name().
+	// While Contact Form 7's file uploading function uses wp_unique_filename(), and
+	// it in turn calls sanitize_file_name(). Therefore this wpcf7_sanitize_file_name() will be
+	// redundant and unnecessary when you use Contact Form 7 on WordPress 2.8.6 or higher.
+	// This function is provided just for the sake of protecting who uses older WordPress.
+	*/
 
-/**
- * Navigates through an array, object, or scalar, and
- * normalizes newline characters in the each value.
- *
- * @param mixed $input The array or string to be processed.
- * @param string $to Optional. The newline character that is used in the output.
- * @return mixed Processed value.
- */
-function wpcf7_normalize_newline_deep( $input, $to = "\n" ) {
-	if ( is_array( $input ) ) {
-		$result = array();
-
-		foreach ( $input as $key => $text ) {
-			$result[$key] = wpcf7_normalize_newline_deep( $text, $to );
-		}
-
-		return $result;
-	}
-
-	return wpcf7_normalize_newline( $input, $to );
-}
-
-
-/**
- * Strips newline characters.
- *
- * @param string $text Input text.
- * @return string Processed one-line text.
- */
-function wpcf7_strip_newline( $text ) {
-	$text = (string) $text;
-	$text = str_replace( array( "\r", "\n" ), '', $text );
-	return wpcf7_strip_whitespaces( $text );
-}
-
-
-/**
- * Canonicalizes text.
- *
- * @param string $text Input text.
- * @param string|array|object $options Options.
- * @return string Canonicalized text.
- */
-function wpcf7_canonicalize( $text, $options = '' ) {
-	// for back-compat
-	if (
-		is_string( $options ) and
-		'' !== $options and
-		! str_contains( $options, '=' )
-	) {
-		$options = array(
-			'strto' => $options,
-		);
-	}
-
-	$options = wp_parse_args( $options, array(
-		'strto' => 'lower',
-		'strip_separators' => false,
-	) );
-
-	static $charset = null;
-
-	if ( ! isset( $charset ) ) {
-		$charset = get_option( 'blog_charset' );
-
-		$is_utf8 = in_array(
-			$charset,
-			array( 'utf8', 'utf-8', 'UTF8', 'UTF-8' ),
-			true
-		);
-
-		if ( $is_utf8 ) {
-			$charset = 'UTF-8';
-		}
-	}
-
-	$text = html_entity_decode( $text, ENT_QUOTES | ENT_HTML5, $charset );
-
-	if ( function_exists( 'mb_convert_kana' ) ) {
-		$text = mb_convert_kana( $text, 'asKV', $charset );
-	}
-
-	if ( $options['strip_separators'] ) {
-		$text = preg_replace( '/[\r\n\t ]+/', '', $text );
-	} else {
-		$text = preg_replace( '/[\r\n\t ]+/', ' ', $text );
-	}
-
-	if ( 'lower' === $options['strto'] ) {
-		if ( function_exists( 'mb_strtolower' ) ) {
-			$text = mb_strtolower( $text, $charset );
-		} else {
-			$text = strtolower( $text );
-		}
-	} elseif ( 'upper' === $options['strto'] ) {
-		if ( function_exists( 'mb_strtoupper' ) ) {
-			$text = mb_strtoupper( $text, $charset );
-		} else {
-			$text = strtoupper( $text );
-		}
-	}
-
-	return wpcf7_strip_whitespaces( $text );
-}
-
-
-/**
- * Returns a canonical keyword usable for a name or an ID purposes.
- */
-function wpcf7_canonicalize_name( $text ) {
-	return preg_replace( '/[^0-9a-z]+/i', '-', $text );
-}
-
-
-/**
- * Sanitizes Contact Form 7's form unit-tag.
- *
- * @param string $tag Unit-tag.
- * @return string Sanitized unit-tag.
- */
-function wpcf7_sanitize_unit_tag( $tag ) {
-	$tag = preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $tag );
-	return $tag;
-}
-
-
-/**
- * Converts a file name to one that is not executable as a script.
- *
- * @param string $filename File name.
- * @return string Converted file name.
- */
-function wpcf7_antiscript_file_name( $filename ) {
-	$filename = wp_scrub_utf8( $filename );
-	$filename = wpcf7_strip_whitespaces( $filename );
-	$filename = wp_basename( $filename );
-
-	// Apply part of protection logic from sanitize_file_name().
-	$filename = str_replace(
-		array(
-			'?', '[', ']', '/', '\\', '=', '<', '>', ':', ';', ',', "'", '"',
-			'&', '$', '#', '*', '(', ')', '|', '~', '`', '!', '{', '}',
-			'%', '+', '’', '«', '»', '”', '“', chr( 0 )
-		),
-		'',
-		$filename
-	);
-
-	$whitespaces = '\x09-\x0D\x20\xA0\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}';
-
-	$filename = preg_replace(
-		sprintf( '/[%s-]+/u', $whitespaces ), '-', $filename
-	);
-
-	$filename = preg_replace( '/[\pC\pZ]+/iu', '', $filename );
-
+	// Split the filename into a base and extension[s]
 	$parts = explode( '.', $filename );
 
-	if ( count( $parts ) < 2 ) {
+	// Return if only one extension
+	if ( count( $parts ) <= 2 )
 		return $filename;
-	}
 
-	$ext_safelist = wpcf7_file_extension_safelist();
-
+	// Process multiple extensions
 	$filename = array_shift( $parts );
 	$extension = array_pop( $parts );
 
-	foreach ( $parts as $part ) {
-		if ( ! in_array( strtolower( $part ), $ext_safelist, true ) ) {
-			$filename .= '.' . $part . '_';
-		} else {
-			$filename .= '.' . $part;
+	$mimes = array( 'jpg|jpeg|jpe', 'gif', 'png', 'bmp',
+		'tif|tiff', 'ico', 'asf|asx|wax|wmv|wmx', 'avi',
+		'divx', 'mov|qt', 'mpeg|mpg|mpe', 'txt|c|cc|h',
+		'rtx', 'css', 'htm|html', 'mp3|m4a', 'mp4|m4v',
+		'ra|ram', 'wav', 'ogg', 'mid|midi', 'wma', 'rtf',
+		'js', 'pdf', 'doc|docx', 'pot|pps|ppt|pptx', 'wri',
+		'xla|xls|xlsx|xlt|xlw', 'mdb', 'mpp', 'swf', 'class',
+		'tar', 'zip', 'gz|gzip', 'exe',
+		// openoffice formats
+		'odt', 'odp', 'ods', 'odg', 'odc', 'odb', 'odf' );
+
+	// Loop over any intermediate extensions.
+	// Munge them with a trailing underscore if they are a 2 - 5 character
+	// long alpha string not in the extension whitelist.
+	foreach ( (array) $parts as $part) {
+		$filename .= '.' . $part;
+
+		if ( preg_match( '/^[a-zA-Z]{2,5}\d?$/', $part ) ) {
+			$allowed = false;
+			foreach ( $mimes as $ext_preg ) {
+				$ext_preg = '!(^' . $ext_preg . ')$!i';
+				if ( preg_match( $ext_preg, $part ) ) {
+					$allowed = true;
+					break;
+				}
+			}
+			if ( ! $allowed )
+				$filename .= '_';
 		}
 	}
-
-	if ( ! in_array( strtolower( $extension ), $ext_safelist, true ) ) {
-		$filename .= '.' . $extension . '_.txt';
-	} else {
-		$filename .= '.' . $extension;
-	}
+	$filename .= '.' . $extension;
 
 	return $filename;
 }
 
-
-/**
- * Returns a file extension safelist.
- *
- * @return array List of file extensions.
- */
-function wpcf7_file_extension_safelist(): array {
-	$safelist = array_merge(
-		FileRule::convertMimeToExt( 'audio/*' ),
-		FileRule::convertMimeToExt( 'video/*' ),
-		FileRule::convertMimeToExt( 'image/*' ),
-		array( 'pdf', 'txt' )
-	);
-
-	$safelist = apply_filters( 'wpcf7_file_extension_safelist', $safelist );
-
-	return array_values( array_unique( $safelist ) );
-}
-
-
-/**
- * Masks a password with asterisks (*).
- *
- * @param int $right Length of right-hand unmasked text. Default 0.
- * @param int $left Length of left-hand unmasked text. Default 0.
- * @return string Text of masked password.
- */
-function wpcf7_mask_password( $text, $right = 0, $left = 0 ) {
-	$length = strlen( $text );
-
-	$right = absint( $right );
-	$left = absint( $left );
-
-	if ( $length < $right + $left ) {
-		$right = $left = 0;
-	}
-
-	if ( $length <= 48 ) {
-		$masked = str_repeat( '*', $length - ( $right + $left ) );
-	} elseif ( $right + $left < 48 ) {
-		$masked = str_repeat( '*', 48 - ( $right + $left ) );
-	} else {
-		$masked = '****';
-	}
-
-	$left_unmasked = $left ? substr( $text, 0, $left ) : '';
-	$right_unmasked = $right ? substr( $text, -1 * $right ) : '';
-
-	$text = $left_unmasked . $masked . $right_unmasked;
-
-	return $text;
-}
-
-
-/**
- * Returns an array of allowed HTML tags and attributes for a given context.
- *
- * @param string $context Context used to decide allowed tags and attributes.
- * @return array Array of allowed HTML tags and their allowed attributes.
- */
-function wpcf7_kses_allowed_html( $context = 'form' ) {
-	static $allowed_tags = array();
-
-	if ( isset( $allowed_tags[$context] ) ) {
-		return apply_filters(
-			'wpcf7_kses_allowed_html',
-			$allowed_tags[$context],
-			$context
-		);
-	}
-
-	$allowed_tags[$context] = wp_kses_allowed_html( 'post' );
-
-	if ( 'form' === $context ) {
-		$additional_tags_for_form = array(
-			'datalist' => array(),
-			'fieldset' => array(
-				'disabled' => true,
-				'name' => true,
-			),
-			'input' => array(
-				'accept' => true,
-				'alt' => true,
-				'autocomplete' => true,
-				'capture' => true,
-				'checked' => true,
-				'disabled' => true,
-				'list' => true,
-				'max' => true,
-				'maxlength' => true,
-				'min' => true,
-				'minlength' => true,
-				'multiple' => true,
-				'name' => true,
-				'pattern' => true,
-				'placeholder' => true,
-				'readonly' => true,
-				'required' => true,
-				'size' => true,
-				'step' => true,
-				'type' => true,
-				'value' => true,
-			),
-			'optgroup' => array(
-				'disabled' => true,
-				'label' => true,
-			),
-			'option' => array(
-				'disabled' => true,
-				'label' => true,
-				'selected' => true,
-				'value' => true,
-			),
-			'output' => array(
-				'for' => true,
-				'name' => true,
-			),
-			'select' => array(
-				'autocomplete' => true,
-				'disabled' => true,
-				'multiple' => true,
-				'name' => true,
-				'required' => true,
-				'size' => true,
-			),
-			'textarea' => array(
-				'autocomplete' => true,
-				'cols' => true,
-				'disabled' => true,
-				'maxlength' => true,
-				'minlength' => true,
-				'name' => true,
-				'placeholder' => true,
-				'readonly' => true,
-				'required' => true,
-				'rows' => true,
-				'wrap' => true,
-			),
-		);
-
-		$allowed_tags[$context] = array_merge(
-			$allowed_tags[$context],
-			$additional_tags_for_form
-		);
-
-		$allowed_tags[$context] = array_map(
-			static function ( $elm ) {
-				$global_attributes = array(
-					'aria-atomic' => true,
-					'aria-checked' => true,
-					'aria-controls' => true,
-					'aria-current' => true,
-					'aria-describedby' => true,
-					'aria-details' => true,
-					'aria-disabled' => true,
-					'aria-expanded' => true,
-					'aria-hidden' => true,
-					'aria-invalid' => true,
-					'aria-label' => true,
-					'aria-labelledby' => true,
-					'aria-live' => true,
-					'aria-relevant' => true,
-					'aria-required' => true,
-					'aria-selected' => true,
-					'class' => true,
-					'data-*' => true,
-					'dir' => true,
-					'hidden' => true,
-					'id' => true,
-					'inputmode' => true,
-					'lang' => true,
-					'popover' => true,
-					'role' => true,
-					'spellcheck' => true,
-					'style' => true,
-					'tabindex' => true,
-					'title' => true,
-					'xml:lang' => true,
-				);
-
-				return array_merge( $global_attributes, (array) $elm );
-			},
-			$allowed_tags[$context]
-		);
-	}
-
-	return apply_filters(
-		'wpcf7_kses_allowed_html',
-		$allowed_tags[$context],
-		$context
-	);
-}
-
-
-/**
- * Sanitizes content for allowed HTML tags for the specified context.
- *
- * @param string $input Content to filter.
- * @param string $context Context used to decide allowed tags and attributes.
- * @return string Filtered text with allowed HTML tags and attributes intact.
- */
-function wpcf7_kses( $input, $context = 'form' ) {
-	$output = wp_kses(
-		$input,
-		wpcf7_kses_allowed_html( $context )
-	);
-
-	return $output;
-}
-
-
-/**
- * Returns a formatted string of HTML attributes.
- *
- * @param array $atts Associative array of attribute name and value pairs.
- * @return string Formatted HTML attributes.
- */
-function wpcf7_format_atts( $atts ) {
-	$atts_filtered = array();
-
-	foreach ( $atts as $name => $value ) {
-		$name = strtolower( trim( $name ) );
-
-		if ( ! preg_match( '/^[a-z_:][a-z_:.0-9-]*$/', $name ) ) {
-			continue;
-		}
-
-		static $boolean_attributes = array(
-			'checked',
-			'disabled',
-			'inert',
-			'multiple',
-			'readonly',
-			'required',
-			'selected',
-		);
-
-		if ( in_array( $name, $boolean_attributes, true ) and '' === $value ) {
-			$value = false;
-		}
-
-		if ( is_numeric( $value ) ) {
-			$value = (string) $value;
-		}
-
-		if ( null === $value or false === $value ) {
-			unset( $atts_filtered[$name] );
-		} elseif ( true === $value ) {
-			$atts_filtered[$name] = $name; // boolean attribute
-		} elseif ( is_string( $value ) ) {
-			$atts_filtered[$name] = trim( $value );
-		}
-	}
-
-	$output = '';
-
-	foreach ( $atts_filtered as $name => $value ) {
-		$output .= sprintf( ' %1$s="%2$s"', $name, esc_attr( $value ) );
-	}
-
-	return trim( $output );
-}
-
-
-/**
- * Returns the regular expression pattern that represents
- * whitespace characters Unicode defines.
- *
- * @link https://www.unicode.org/Public/UCD/latest/ucd/PropList.txt
- *
- * @return string Regular expression pattern.
- */
-function wpcf7_get_unicode_whitespaces() {
-	return '\x09-\x0D\x20\x85\xA0\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}';
-}
-
-
-/**
- * Strips surrounding whitespaces.
- *
- * @link https://contactform7.com/2024/07/13/consistent-handling-policy-of-surrounding-whitespaces/
- *
- * @param string|array $input Input text.
- * @param string $side The side from which whitespaces are stripped.
- *               'start', 'end', or 'both' (default).
- * @return string|array Output text.
- */
-function wpcf7_strip_whitespaces( $input, $side = 'both' ) {
-	if ( is_array( $input ) ) {
-		return array_map(
-			static function ( $i ) use ( $side ) {
-				return wpcf7_strip_whitespaces( $i, $side );
-			},
-			$input
-		);
-	}
-
-	// https://tc39.es/ecma262/multipage/ecmascript-language-lexical-grammar.html
-	$whitespaces = wpcf7_get_unicode_whitespaces() . '\x{FEFF}';
-
-	$input = wp_scrub_utf8( $input );
-
-	if ( 'end' !== $side ) {
-		// Strip leading whitespaces
-		$input = preg_replace(
-			sprintf( '/^[%s]+/u', $whitespaces ),
-			'',
-			$input
-		);
-	}
-
-	if ( 'start' !== $side ) {
-		// Strip trailing whitespaces
-		$input = preg_replace(
-			sprintf( '/[%s]+$/u', $whitespaces ),
-			'',
-			$input
-		);
-	}
-
-	return $input;
-}
+?>

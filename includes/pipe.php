@@ -1,76 +1,48 @@
 <?php
-/**
- * Pipe-related classes
- *
- * @link https://contactform7.com/selectable-recipient-with-pipes/
- */
 
-if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
-
-/**
- * Class representing a pair of pipe.
- */
 class WPCF7_Pipe {
 
-	public $before = '';
-	public $after = '';
+	var $before = '';
+	var $after = '';
 
-	public function __construct( $text ) {
-		$text = (string) $text;
-
+	function WPCF7_Pipe( $text ) {
 		$pipe_pos = strpos( $text, '|' );
-
 		if ( false === $pipe_pos ) {
-			$this->before = $this->after = wpcf7_strip_whitespaces( $text );
+			$this->before = $this->after = $text;
 		} else {
-			$this->before = wpcf7_strip_whitespaces( substr( $text, 0, $pipe_pos ) );
-			$this->after = wpcf7_strip_whitespaces( substr( $text, $pipe_pos + 1 ) );
+			$this->before = substr( $text, 0, $pipe_pos );
+			$this->after = substr( $text, $pipe_pos + 1 );
 		}
 	}
 }
 
-
-/**
- * Class representing a list of pipes.
- */
 class WPCF7_Pipes {
 
-	private $pipes = array();
+	var $pipes = array();
 
-	public function __construct( $texts = null ) {
-		foreach ( (array) $texts as $text ) {
+	function WPCF7_Pipes( $texts ) {
+		if ( ! is_array( $texts ) )
+			return;
+
+		foreach ( $texts as $text ) {
 			$this->add_pipe( $text );
 		}
 	}
 
-	private function add_pipe( $text ) {
+	function add_pipe( $text ) {
 		$pipe = new WPCF7_Pipe( $text );
 		$this->pipes[] = $pipe;
 	}
 
-	public function merge( self $another ) {
-		$this->pipes = array_merge( $this->pipes, $another->pipes );
-	}
-
-	public function do_pipe( $input ) {
-		$input_canonical = wpcf7_canonicalize( $input, array(
-			'strto' => 'as-is',
-		) );
-
+	function do_pipe( $before ) {
 		foreach ( $this->pipes as $pipe ) {
-			$before_canonical = wpcf7_canonicalize( $pipe->before, array(
-				'strto' => 'as-is',
-			) );
-
-			if ( $input_canonical === $before_canonical ) {
+			if ( $pipe->before == $before )
 				return $pipe->after;
-			}
 		}
-
-		return $input;
+		return $before;
 	}
 
-	public function collect_befores() {
+	function collect_befores() {
 		$befores = array();
 
 		foreach ( $this->pipes as $pipe ) {
@@ -80,71 +52,16 @@ class WPCF7_Pipes {
 		return $befores;
 	}
 
-	public function collect_afters() {
-		$afters = array();
-
-		foreach ( $this->pipes as $pipe ) {
-			$afters[] = $pipe->after;
-		}
-
-		return $afters;
-	}
-
-	public function zero() {
+	function zero() {
 		return empty( $this->pipes );
 	}
 
-	public function random_pipe() {
-		if ( $this->zero() ) {
+	function random_pipe() {
+		if ( $this->zero() )
 			return null;
-		}
 
 		return $this->pipes[array_rand( $this->pipes )];
 	}
-
-	public function to_array() {
-		return array_map(
-			static function ( WPCF7_Pipe $pipe ) {
-				return array(
-					$pipe->before,
-					$pipe->after,
-				);
-			},
-			$this->pipes
-		);
-	}
 }
 
-
-/**
- * Trait for classes that hold cross-tag WPCF7_Pipes object.
- */
-trait WPCF7_PipesHolder {
-
-	protected $pipes;
-
-	public function get_pipes( $field_name ) {
-		if ( isset( $this->pipes[$field_name] ) ) {
-			return $this->pipes[$field_name];
-		}
-
-		$result = new WPCF7_Pipes();
-
-		$tags = $this->scan_form_tags( array(
-			'name' => $field_name,
-		) );
-
-		foreach ( $tags as $tag ) {
-			if ( $tag->pipes instanceof WPCF7_Pipes ) {
-				$result->merge( $tag->pipes );
-			}
-		}
-
-		return $this->pipes[$field_name] = $result;
-	}
-
-	public function scan_form_tags() {
-		return array();
-	}
-
-}
+?>

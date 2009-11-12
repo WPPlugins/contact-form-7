@@ -1,123 +1,49 @@
 <?php
 /**
- * Submit button
- *
- * @link https://contactform7.com/submit-button/
- */
+** A base module for [submit]
+**/
 
-if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+/* Shortcode handler */
 
-/* form_tag handler */
+wpcf7_add_shortcode( 'submit', 'wpcf7_submit_shortcode_handler' );
 
-add_action( 'wpcf7_init', 'wpcf7_add_form_tag_submit', 10, 0 );
+function wpcf7_submit_shortcode_handler( $tag ) {
+	if ( ! is_array( $tag ) )
+		return '';
 
-function wpcf7_add_form_tag_submit() {
-	wpcf7_add_form_tag( 'submit', 'wpcf7_submit_form_tag_handler' );
-}
+	$options = (array) $tag['options'];
+	$values = (array) $tag['values'];
 
-function wpcf7_submit_form_tag_handler( $tag ) {
-	$class = wpcf7_form_controls_class( $tag->type, 'has-spinner' );
+	$atts = '';
+	$id_att = '';
+	$class_att = '';
 
-	$atts = array();
+	foreach ( $options as $option ) {
+		if ( preg_match( '%^id:([-0-9a-zA-Z_]+)$%', $option, $matches ) ) {
+			$id_att = $matches[1];
 
-	$atts['class'] = $tag->get_class_option( $class );
-	$atts['id'] = $tag->get_id_option();
-	$atts['tabindex'] = $tag->get_option( 'tabindex', 'signed_int', true );
+		} elseif ( preg_match( '%^class:([-0-9a-zA-Z_]+)$%', $option, $matches ) ) {
+			$class_att .= ' ' . $matches[1];
 
-	$value = isset( $tag->values[0] ) ? $tag->values[0] : '';
-
-	if ( empty( $value ) ) {
-		$value = __( 'Send', 'contact-form-7' );
+		}
 	}
 
-	$atts['type'] = 'submit';
-	$atts['value'] = $value;
+	if ( $id_att )
+		$atts .= ' id="' . trim( $id_att ) . '"';
 
-	$atts = wpcf7_format_atts( $atts );
+	if ( $class_att )
+		$atts .= ' class="' . trim( $class_att ) . '"';
 
-	$html = sprintf( '<input %1$s />', $atts );
+	$value = $values[0];
+	if ( empty( $value ) )
+		$value = __( 'Send', 'wpcf7' );
+
+	$ajax_loader_image_url = wpcf7_plugin_url( 'images/ajax-loader.gif' );
+
+	$html = '<input type="submit" value="' . esc_attr( $value ) . '"' . $atts . ' />';
+	$html .= ' <img class="ajax-loader" style="visibility: hidden;" alt="ajax loader" src="' . $ajax_loader_image_url . '" />';
 
 	return $html;
 }
 
-
-/* Tag generator */
-
-add_action( 'wpcf7_admin_init', 'wpcf7_add_tag_generator_submit', 55, 0 );
-
-function wpcf7_add_tag_generator_submit() {
-	$tag_generator = WPCF7_TagGenerator::get_instance();
-
-	$tag_generator->add( 'submit', __( 'submit', 'contact-form-7' ),
-		'wpcf7_tag_generator_submit',
-		array( 'version' => '2' )
-	);
-}
-
-function wpcf7_tag_generator_submit( $contact_form, $options ) {
-	$field_types = array(
-		'submit' => array(
-			'display_name' => __( 'Submit button', 'contact-form-7' ),
-			'heading' => __( 'Submit button form-tag generator', 'contact-form-7' ),
-			'description' => sprintf(
-				/* translators: %s: URL to submit button doc */
-				__( 'Generates a form-tag for a <a href="%s">submit button</a>.', 'contact-form-7' ),
-				'https://contactform7.com/submit-button/'
-			),
-		),
-	);
-
-	$tgg = new WPCF7_TagGeneratorGenerator( $options['content'] );
-
-	$formatter = new WPCF7_HTMLFormatter();
-
-	$formatter->append_start_tag( 'header', array(
-		'class' => 'description-box',
-	) );
-
-	$formatter->append_start_tag( 'h3' );
-
-	$formatter->append_preformatted(
-		esc_html( $field_types['submit']['heading'] )
-	);
-
-	$formatter->end_tag( 'h3' );
-
-	$formatter->append_start_tag( 'p' );
-
-	$formatter->append_preformatted(
-		wp_kses_data( $field_types['submit']['description'] )
-	);
-
-	$formatter->end_tag( 'header' );
-
-	$formatter->append_start_tag( 'div', array(
-		'class' => 'control-box',
-	) );
-
-	$formatter->call_user_func( static function () use ( $tgg, $field_types ) {
-		$tgg->print( 'field_type', array(
-			'select_options' => array(
-				'submit' => $field_types['submit']['display_name'],
-			),
-		) );
-
-		$tgg->print( 'class_attr' );
-
-		$tgg->print( 'default_value', array(
-			'title' => __( 'Label', 'contact-form-7' ),
-		) );
-	} );
-
-	$formatter->end_tag( 'div' );
-
-	$formatter->append_start_tag( 'footer', array(
-		'class' => 'insert-box',
-	) );
-
-	$formatter->call_user_func( static function () use ( $tgg, $field_types ) {
-		$tgg->print( 'insert_box_content' );
-	} );
-
-	$formatter->print();
-}
+?>
