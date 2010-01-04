@@ -46,7 +46,7 @@ class WPCF7_ContactForm {
 		$url .= '#' . $this->unit_tag;
 
 		$url = apply_filters( 'wpcf7_form_action_url', $url );
-		$url = sanitize_url( $url );
+		$url = esc_url_raw( $url );
 
 		$enctype = apply_filters( 'wpcf7_form_enctype', '' );
 
@@ -373,25 +373,19 @@ class WPCF7_ContactForm {
 
 			return stripslashes( $submitted );
 
-		} else {
-			// Special [wpcf7.remote_ip] tag
-			if ( 'wpcf7.remote_ip' == $matches[1] )
-				return preg_replace( '/[^0-9a-f.:, ]/', '', $_SERVER['REMOTE_ADDR'] );
-
-			return $matches[0];
 		}
+
+		if ( $special = apply_filters( 'wpcf7_special_mail_tags', '', $matches[1] ) )
+			return $special;
+
+		return $matches[0];
 	}
 
 	/* Message */
 
 	function message( $status ) {
 		$messages = $this->messages;
-		$message = '';
-
-		if ( ! is_array( $messages ) || ! isset( $messages[$status] ) )
-			$message = wpcf7_default_message( $status );
-		else
-			$message = $messages[$status];
+		$message = $messages[$status];
 
 		return apply_filters( 'wpcf7_display_message', $message );
 	}
@@ -440,15 +434,10 @@ class WPCF7_ContactForm {
 		if ( ! is_array( $this->messages ) )
 			$this->messages = array();
 
-		$messages = array(
-			'mail_sent_ok', 'mail_sent_ng', 'akismet_says_spam', 'validation_error', 'accept_terms',
-			'invalid_email', 'invalid_required', 'captcha_not_match', 'upload_failed',
-			'upload_file_type_invalid', 'upload_file_too_large', 'upload_failed_php_error',
-			'quiz_answer_not_correct' );
 
-		foreach ($messages as $message) {
-			if ( ! isset( $this->messages[$message] ) )
-				$this->messages[$message] = wpcf7_default_message( $message );
+		foreach ( wpcf7_messages() as $key => $arr ) {
+			if ( ! isset( $this->messages[$key] ) )
+				$this->messages[$key] = $arr['default'];
 		}
 	}
 
@@ -485,7 +474,7 @@ class WPCF7_ContactForm {
 				return false; // Missing ID
 
 			$result = $wpdb->update( $table_name, $fields,
-				array( 'cf7_unit_id' => absint( $this->id) ) );
+				array( 'cf7_unit_id' => absint( $this->id ) ) );
 
 			if ( false !== $result ) {
 				do_action_ref_array( 'wpcf7_after_update', array( &$this ) );
@@ -557,7 +546,22 @@ function wpcf7_contact_form( $id ) {
 	return $contact_form;
 }
 
-function wpcf7_contact_form_default_pack() {
+function wpcf7_contact_form_default_pack( $locale = null ) {
+	global $l10n;
+
+	if ( $locale && $locale != get_locale() ) {
+		$mo_orig = $l10n['wpcf7'];
+		unset( $l10n['wpcf7'] );
+
+		if ( 'en_US' != $locale ) {
+			$mofile = wpcf7_plugin_path( 'languages/wpcf7-' . $locale . '.mo' );
+			if ( ! load_textdomain( 'wpcf7', $mofile ) ) {
+				$l10n['wpcf7'] = $mo_orig;
+				unset( $mo_orig );
+			}
+		}
+	}
+
 	$contact_form = new WPCF7_ContactForm();
 	$contact_form->initial = true;
 
@@ -567,7 +571,49 @@ function wpcf7_contact_form_default_pack() {
 	$contact_form->mail_2 = wpcf7_default_mail_2_template();
 	$contact_form->messages = wpcf7_default_messages_template();
 
+	if ( isset( $mo_orig ) )
+		$l10n['wpcf7'] = $mo_orig;
+
 	return $contact_form;
+}
+
+/* Default Filters */
+
+add_filter( 'wpcf7_special_mail_tags', 'wpcf7_special_mail_tag_for_remote_ip', 10, 2 );
+
+function wpcf7_special_mail_tag_for_remote_ip( $output, $name ) {
+	// Special [wpcf7.remote_ip] tag
+	if ( 'wpcf7.remote_ip' == $name )
+		$output = preg_replace( '/[^0-9a-f.:, ]/', '', $_SERVER['REMOTE_ADDR'] );
+
+	return $output;
+}
+
+add_filter( 'wpcf7_special_mail_tags', 'wpcf7_special_mail_tag_for_post_data', 10, 2 );
+
+function wpcf7_special_mail_tag_for_post_data( $output, $name ) {
+	if ( ! isset( $_POST['_wpcf7_unit_tag'] ) || empty( $_POST['_wpcf7_unit_tag'] ) )
+		return $output;
+
+	if ( ! preg_match( '/^wpcf7-f(\d+)-p(\d+)-o(\d+)$/', $_POST['_wpcf7_unit_tag'], $matches ) )
+		return $output;
+
+	$post_id = (int) $matches[2];
+
+	if ( ! $post = get_post( $post_id ) )
+		return $output;
+
+	if ( 'wpcf7.post_id' == $name ) { // Special [wpcf7.post_id] tag
+		$output = (string) $post->ID;
+	} elseif ( 'wpcf7.post_name' == $name ) { // Special [wpcf7.post_name] tag
+		$output = $post->post_name;
+	} elseif ( 'wpcf7.post_title' == $name ) { // Special [wpcf7.post_title] tag
+		$output = $post->post_title;
+	} elseif ( 'wpcf7.post_url' == $name ) { // Special [wpcf7.post_url] tag
+		$output = get_permalink( $post->ID );
+	}
+
+	return $output;
 }
 
 ?>

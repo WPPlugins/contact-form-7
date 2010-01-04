@@ -3,11 +3,36 @@
 add_action( 'init', 'wpcf7_init_switch', 11 );
 
 function wpcf7_init_switch() {
-	if ( 'POST' == $_SERVER['REQUEST_METHOD'] && 1 == (int) $_POST['_wpcf7_is_ajax_call'] ) {
+	if ( 'GET' == $_SERVER['REQUEST_METHOD'] && 1 == (int) $_GET['_wpcf7_is_ajax_call'] ) {
+		wpcf7_ajax_onload();
+		exit();
+	} elseif ( 'POST' == $_SERVER['REQUEST_METHOD'] && 1 == (int) $_POST['_wpcf7_is_ajax_call'] ) {
 		wpcf7_ajax_json_echo();
 		exit();
 	} elseif ( isset( $_POST['_wpcf7'] ) ) {
 		wpcf7_process_nonajax_submitting();
+	}
+}
+
+function wpcf7_ajax_onload() {
+	global $wpcf7_contact_form;
+
+	$echo = '';
+
+	if ( isset( $_GET['_wpcf7'] ) ) {
+		$id = (int) $_GET['_wpcf7'];
+
+		if ( $wpcf7_contact_form = wpcf7_contact_form( $id ) ) {
+			$items = apply_filters( 'wpcf7_ajax_onload', array() );
+			$wpcf7_contact_form = null;
+		}
+	}
+
+	$echo = wpcf7_json( $items );
+
+	if ( $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest' ) {
+		@header( 'Content-Type: application/json; charset=' . get_option( 'blog_charset' ) );
+		echo $echo;
 	}
 }
 
@@ -153,6 +178,9 @@ add_shortcode( 'contact-form', 'wpcf7_contact_form_tag_func' );
 function wpcf7_contact_form_tag_func( $atts ) {
 	global $wpcf7_contact_form, $wpcf7_unit_count, $wpcf7_processing_within;
 
+	if ( is_feed() )
+		return '[contact-form]';
+
 	if ( is_string( $atts ) )
 		$atts = explode( ' ', $atts, 2 );
 
@@ -176,6 +204,22 @@ function wpcf7_contact_form_tag_func( $atts ) {
 }
 
 if ( WPCF7_LOAD_JS )
+	add_action( 'wp_head', 'wpcf7_head' );
+
+function wpcf7_head() {
+	// Cached?
+	if ( defined( 'WP_CACHE' ) && WP_CACHE ) :
+?>
+<script type="text/javascript">
+//<![CDATA[
+var _wpcf7 = { cached: 1 };
+//]]>
+</script>
+<?php
+	endif;
+}
+
+if ( WPCF7_LOAD_JS )
 	add_action( 'wp_print_scripts', 'wpcf7_enqueue_scripts' );
 
 function wpcf7_enqueue_scripts() {
@@ -183,7 +227,7 @@ function wpcf7_enqueue_scripts() {
 	if ( 'header' === WPCF7_LOAD_JS )
 		$in_footer = false;
 
-	wp_enqueue_script( 'contact-form-7', wpcf7_plugin_url( 'contact-form-7.js' ),
+	wp_enqueue_script( 'contact-form-7', wpcf7_plugin_url( 'scripts.js' ),
 		array('jquery', 'jquery-form'), WPCF7_VERSION, $in_footer );
 }
 
@@ -191,11 +235,11 @@ if ( WPCF7_LOAD_CSS )
 	add_action( 'wp_print_styles', 'wpcf7_enqueue_styles' );
 
 function wpcf7_enqueue_styles() {
-	wp_enqueue_style( 'contact-form-7', wpcf7_plugin_url( 'stylesheet.css' ),
+	wp_enqueue_style( 'contact-form-7', wpcf7_plugin_url( 'styles.css' ),
 		array(), WPCF7_VERSION, 'all' );
 
 	if ( 'rtl' == get_bloginfo( 'text_direction' ) ) {
-		wp_enqueue_style( 'contact-form-7-rtl', wpcf7_plugin_url( 'stylesheet-rtl.css' ),
+		wp_enqueue_style( 'contact-form-7-rtl', wpcf7_plugin_url( 'styles-rtl.css' ),
 			array(), WPCF7_VERSION, 'all' );
 	}
 }

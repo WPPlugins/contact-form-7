@@ -3,7 +3,7 @@
 /* No table warning */
 if ( ! wpcf7_table_exists() ) {
 	if ( current_user_can( 'activate_plugins' ) ) {
-		$create_table_link_url = wpcf7_admin_url( 'admin.php', array( 'wpcf7-create-table' => 1 ) );
+		$create_table_link_url = wpcf7_admin_url( array( 'wpcf7-create-table' => 1 ) );
 		$create_table_link_url = wp_nonce_url( $create_table_link_url, 'wpcf7-create-table' );
 		$message = sprintf(
 			__( '<strong>The database table for Contact Form 7 does not exist.</strong> You must <a href="%s">create the table</a> for it to work.', 'wpcf7' ),
@@ -25,33 +25,33 @@ if ( ! wpcf7_table_exists() ) {
 
 ?><div class="wrap wpcf7">
 
-	<?php screen_icon( 'edit-pages' ); ?>
+<?php screen_icon( 'edit-pages' ); ?>
 
-	<h2><?php echo esc_html( __( 'Contact Form 7', 'wpcf7' ) ); ?></h2>
+<h2><?php echo esc_html( __( 'Contact Form 7', 'wpcf7' ) ); ?></h2>
 
-	<?php wpcf7_donation_link(); ?>
+<?php do_action_ref_array( 'wpcf7_admin_before_subsubsub', array( &$cf ) ); ?>
 
-	<?php if ( isset( $updated_message ) ) : ?>
-	<div id="message" class="updated fade"><p><?php echo $updated_message; ?></p></div>
-	<?php endif; ?>
+<ul class="subsubsub">
+<?php
+$first = array_shift( $contact_forms );
+if ( ! is_null( $first ) ) : ?>
+<li><a href="<?php echo wpcf7_admin_url( array( 'contactform' => $first->id ) ); ?>"<?php if ( $first->id == $current ) echo ' class="current"'; ?>><?php echo esc_html( $first->title ); ?></a></li>
+<?php endif;
+foreach ( $contact_forms as $v ) : ?>
+<li>| <a href="<?php echo wpcf7_admin_url( array( 'contactform' => $v->id ) ); ?>"<?php if ( $v->id == $current ) echo ' class="current"'; ?>><?php echo esc_html( $v->title ); ?></a></li>
+<?php endforeach; ?>
 
-	<ul class="subsubsub">
-	<?php foreach ( $contact_forms as $v ) : ?>
-	<li><a href="<?php echo wpcf7_admin_url( 'admin.php', array( 'contactform' => $v->id ) ); ?>"<?php if ( $v->id == $current ) echo ' class="current"'; ?>>
-		<?php echo esc_html( $v->title ); ?></a> |</li>
-	<?php endforeach; ?>
+<?php if ( wpcf7_admin_has_edit_cap() ) : ?>
+<li class="addnew"><a class="thickbox<?php if ( $unsaved ) echo ' current'; ?>" href="#TB_inline?height=300&width=400&inlineId=wpcf7-lang-select-modal"><?php echo esc_html( __( 'Add new', 'wpcf7' ) ); ?></a></li>
+<?php endif; ?>
+</ul>
 
-	<?php if ( wpcf7_admin_has_edit_cap() ) : ?>
-	<li class="addnew"><a href="<?php echo wpcf7_admin_url( 'admin.php', array( 'contactform' => 'new' ) ); ?>"<?php if ( $unsaved ) echo ' class="current"'; ?>><?php echo esc_html( __( 'Add new', 'wpcf7' ) ); ?></a></li>
-	<?php endif; ?>
-	</ul>
-
-	<br class="clear" />
+<br class="clear" />
 
 <?php if ( $cf ) : ?>
 <?php $disabled = ( wpcf7_admin_has_edit_cap() ) ? '' : ' disabled="disabled"'; ?>
 
-<form method="post" action="<?php echo wpcf7_admin_url( 'admin.php', array( 'contactform' => $current ) ); ?>" id="wpcf7-admin-form-element">
+<form method="post" action="<?php echo wpcf7_admin_url( array( 'contactform' => $current ) ); ?>" id="wpcf7-admin-form-element">
 	<?php if ( wpcf7_admin_has_edit_cap() ) wp_nonce_field( 'wpcf7-save_' . $current ); ?>
 	<input type="hidden" id="wpcf7-id" name="wpcf7-id" value="<?php echo $current; ?>" />
 
@@ -111,7 +111,7 @@ if ( ! wpcf7_table_exists() ) {
 	</td>
 
 	<td scope="col" style="width: 50%;">
-	<div id="tag-generator-div"></div>
+		<div id="taggenerator"></div>
 	</td>
 
 	</tr>
@@ -259,70 +259,15 @@ if ( ! wpcf7_table_exists() ) {
 	<td scope="col">
 	<div id="message-fields">
 
+<?php foreach ( wpcf7_messages() as $key => $arr ) :
+	$field_name = 'wpcf7-message-' . strtr( $key, '_', '-' );
+?>
 	<div class="message-field">
-	<label for="wpcf7-message-mail-sent-ok"><em># <?php echo esc_html( __( "Sender's message was sent successfully", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-mail-sent-ok" name="wpcf7-message-mail-sent-ok" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['mail_sent_ok'] ); ?>" />
+	<label for="<?php echo $field_name; ?>"><em># <?php echo esc_html( $arr['description'] ); ?></em></label><br />
+	<input type="text" id="<?php echo $field_name; ?>" name="<?php echo $field_name; ?>" class="wide" size="70" value="<?php echo esc_attr( $cf->messages[$key] ); ?>" />
 	</div>
 
-	<div class="message-field">
-	<label for="wpcf7-message-mail-sent-ng"><em># <?php echo esc_html( __( "Sender's message was failed to send", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-mail-sent-ng" name="wpcf7-message-mail-sent-ng" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['mail_sent_ng'] ); ?>" />
-	</div>
-
-	<div class="message-field">
-	<label for="wpcf7-message-akismet-says-spam"><em># <?php echo esc_html( __( "Akismet judged the sending activity as spamming", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-akismet-says-spam" name="wpcf7-message-akismet-says-spam" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['akismet_says_spam'] ); ?>" />
-	</div>
-
-	<div class="message-field">
-	<label for="wpcf7-message-validation-error"><em># <?php echo esc_html( __( "Validation errors occurred", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-validation-error" name="wpcf7-message-validation-error" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['validation_error'] ); ?>" />
-	</div>
-
-	<div class="message-field" style="margin-top: 1em;">
-	<label for="wpcf7-message-invalid-required"><em># <?php echo esc_html( __( "There is a field that sender is needed to fill in", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-invalid-required" name="wpcf7-message-invalid-required" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['invalid_required'] ); ?>" />
-	</div>
-
-	<div class="message-field">
-	<label for="wpcf7-message-invalid-email"><em># <?php echo esc_html( __( "Email address that sender entered is invalid", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-invalid-email" name="wpcf7-message-invalid-email" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['invalid_email'] ); ?>" />
-	</div>
-
-	<div class="message-field">
-	<label for="wpcf7-message-accept-terms"><em># <?php echo esc_html( __( "There is a field of term that sender is needed to accept", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-accept-terms" name="wpcf7-message-accept-terms" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['accept_terms'] ); ?>" />
-	</div>
-
-	<div class="message-field">
-	<label for="wpcf7-message-quiz-answer-not-correct"><em># <?php echo esc_html( __( "Sender doesn't enter the correct answer to the quiz", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-quiz-answer-not-correct" name="wpcf7-message-quiz-answer-not-correct" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['quiz_answer_not_correct'] ); ?>" />
-	</div>
-
-	<div class="message-field">
-	<label for="wpcf7-message-captcha-not-match"><em># <?php echo esc_html( __( "The code that sender entered does not match the CAPTCHA", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-captcha-not-match" name="wpcf7-message-captcha-not-match" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['captcha_not_match'] ); ?>" />
-	</div>
-
-	<div class="message-field">
-	<label for="wpcf7-message-upload-failed"><em># <?php echo esc_html( __( "Uploading a file fails for any reason", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-upload-failed" name="wpcf7-message-upload-failed" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['upload_failed'] ); ?>" />
-	</div>
-
-	<div class="message-field">
-	<label for="wpcf7-message-upload-file-type-invalid"><em># <?php echo esc_html( __( "Uploaded file is not allowed file type", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-upload-file-type-invalid" name="wpcf7-message-upload-file-type-invalid" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['upload_file_type_invalid'] ); ?>" />
-	</div>
-
-	<div class="message-field">
-	<label for="wpcf7-message-upload-file-too-large"><em># <?php echo esc_html( __( "Uploaded file is too large", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-upload-file-too-large" name="wpcf7-message-upload-file-too-large" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['upload_file_too_large'] ); ?>" />
-	</div>
-
-	<div class="message-field">
-	<label for="wpcf7-message-upload-failed-php-error"><em># <?php echo esc_html( __( "Uploading a file fails for PHP error", 'wpcf7' ) ); ?></em></label><br />
-	<input type="text" id="wpcf7-message-upload-failed-php-error" name="wpcf7-message-upload-failed-php-error" class="wide" size="70" value="<?php echo esc_attr( $cf->messages['upload_failed_php_error'] ); ?>" />
-	</div>
+<?php endforeach; ?>
 
 	</div>
 	</td>
@@ -350,6 +295,12 @@ if ( ! wpcf7_table_exists() ) {
 	</tbody>
 	</table>
 
+<?php endif; ?>
+
+<?php do_action_ref_array( 'wpcf7_admin_after_additional_settings', array( &$cf ) ); ?>
+
+<?php if ( wpcf7_admin_has_edit_cap() ) : ?>
+
 	<table class="widefat" style="margin-top: 1em;">
 	<tbody>
 	<tr>
@@ -364,9 +315,37 @@ if ( ! wpcf7_table_exists() ) {
 
 <?php endif; ?>
 
-<?php do_action_ref_array( 'wpcf7_admin_after_additional_settings', array( &$cf ) ); ?>
-
 </form>
 
 <?php endif; ?>
+
 </div>
+
+<div id="wpcf7-lang-select-modal" class="hidden">
+<?php
+	$available_locales = wpcf7_l10n();
+	$default_locale = get_locale();
+
+	if ( ! isset( $available_locales[$default_locale] ) )
+		$default_locale = 'en_US';
+
+?>
+<h4><?php echo esc_html( sprintf( __( 'Use the default language (%s)', 'wpcf7' ), $available_locales[$default_locale] ) ); ?></h4>
+<p><a href="<?php echo wpcf7_admin_url( array( 'contactform' => 'new' ) ); ?>" class="button" /><?php echo esc_html( __( 'Add New', 'wpcf7' ) ); ?></a></p>
+
+<?php unset( $available_locales[$default_locale] ); ?>
+<h4><?php echo esc_html( __( 'Or', 'wpcf7' ) ); ?></h4>
+<form action="" method="get">
+<input type="hidden" name="page" value="wpcf7" />
+<input type="hidden" name="contactform" value="new" />
+<select name="locale">
+<option value="" selected="selected"><?php echo esc_html( __( '(select language)', 'wpcf7' ) ); ?></option>
+<?php foreach ( $available_locales as $code => $locale ) : ?>
+<option value="<?php echo esc_attr( $code ); ?>"><?php echo esc_html( $locale ); ?></option>
+<?php endforeach; ?>
+</select>
+<input type="submit" class="button" value="<?php echo esc_attr( __( 'Add New', 'wpcf7' ) ); ?>" />
+</form>
+</div>
+
+<?php do_action_ref_array( 'wpcf7_admin_footer', array( &$cf ) ); ?>

@@ -104,9 +104,10 @@ function wpcf7_quiz_validation_filter( $result, $tag ) {
 
 /* Ajax echo filter */
 
-add_filter( 'wpcf7_ajax_json_echo', 'wpcf7_quiz_ajax_echo_filter' );
+add_filter( 'wpcf7_ajax_onload', 'wpcf7_quiz_ajax_refill' );
+add_filter( 'wpcf7_ajax_json_echo', 'wpcf7_quiz_ajax_refill' );
 
-function wpcf7_quiz_ajax_echo_filter( $items ) {
+function wpcf7_quiz_ajax_refill( $items ) {
 	global $wpcf7_contact_form;
 
 	if ( ! is_a( $wpcf7_contact_form, 'WPCF7_ContactForm' ) )
@@ -151,6 +152,67 @@ function wpcf7_quiz_ajax_echo_filter( $items ) {
 		$items['quiz'] = $refill;
 
 	return $items;
+}
+
+
+/* Messages */
+
+add_filter( 'wpcf7_messages', 'wpcf7_quiz_messages' );
+
+function wpcf7_quiz_messages( $messages ) {
+	return array_merge( $messages, array( 'quiz_answer_not_correct' => array(
+		'description' => __( "Sender doesn't enter the correct answer to the quiz", 'wpcf7' ),
+		'default' => __( 'Your answer is not correct.', 'wpcf7' )
+	) ) );
+}
+
+
+/* Tag generator */
+
+add_action( 'admin_init', 'wpcf7_add_tag_generator_quiz', 40 );
+
+function wpcf7_add_tag_generator_quiz() {
+	wpcf7_add_tag_generator( 'quiz', __( 'Quiz', 'wpcf7' ),
+		'wpcf7-tg-pane-quiz', 'wpcf7_tg_pane_quiz' );
+}
+
+function wpcf7_tg_pane_quiz( &$contact_form ) {
+?>
+<div id="wpcf7-tg-pane-quiz" class="hidden">
+<form action="">
+<table>
+<tr><td><?php echo esc_html( __( 'Name', 'wpcf7' ) ); ?><br /><input type="text" name="name" class="tg-name oneline" /></td><td></td></tr>
+</table>
+
+<table>
+<tr>
+<td><code>id</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
+<input type="text" name="id" class="idvalue oneline option" /></td>
+
+<td><code>class</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
+<input type="text" name="class" class="classvalue oneline option" /></td>
+</tr>
+
+<tr>
+<td><code>size</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
+<input type="text" name="size" class="numeric oneline option" /></td>
+
+<td><code>maxlength</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
+<input type="text" name="maxlength" class="numeric oneline option" /></td>
+</tr>
+
+<tr>
+<td><?php echo esc_html( __( 'Quizzes', 'wpcf7' ) ); ?><br />
+<textarea name="values"></textarea><br />
+<span style="font-size: smaller"><?php echo esc_html( __( "* quiz|answer (e.g. 1+1=?|2)", 'wpcf7' ) ); ?></span>
+</td>
+</tr>
+</table>
+
+<div class="tg-tag"><?php echo esc_html( __( "Copy this code and paste it into the form left.", 'wpcf7' ) ); ?><br /><input type="text" name="quiz" class="tag" readonly="readonly" onfocus="this.select()" /></div>
+</form>
+</div>
+<?php
 }
 
 ?>
