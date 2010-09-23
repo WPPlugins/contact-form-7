@@ -4,7 +4,7 @@ Donate link: http://contactform7.com/donate/
 Tags: contact, form, contact form, feedback, email, ajax, captcha, akismet, multilingual
 Requires at least: 2.9
 Tested up to: 3.0.1
-Stable tag: 2.4
+Stable tag: 2.4.1
 
 Just another contact form plugin. Simple but flexible.
 
@@ -55,7 +55,7 @@ It is hard to continue development and support for this plugin without contribut
 * Latvian (lv) - [Sandis Veinbergs](http://www.kleofass.lv/)
 * Lithuanian (lt_LT) - [Ernestas Kardzys](http://www.ernestas.info/)
 * Malayalam (ml_IN) - [RAHUL.S.A](http://www.infution.co.cc/)
-* Norwegian (nb_NO) - Kjetil M. Bergem, [aanvik.net](http://www.aanvik.net)
+* Norwegian (nb_NO) - Kjetil M. Bergem, [aanvik.net](http://www.aanvik.net), [Peter Holme](http://holme.se/nettsteder/)
 * Persian (Farsi; fa_IR) - [Mohammad Musavi](http://www.musavis.com/)
 * Polish (pl_PL) - [Zbigniew Czernik](http://zibik.jogger.pl/), [Daniel Fruzynski](http://www.poradnik-webmastera.com)
 * Portuguese (pt_PT) - [Hugo Baeta](http://hugobaeta.com)
@@ -98,6 +98,11 @@ Do you have questions or issues with Contact Form 7? Use these support channels 
 1. screenshot-1.png
 
 == Changelog ==
+
+= 2.4.1 =
+
+* Fixed a bug causing fatal error on WordPress 2.9.
+* Translations for Norwegian (Peter Holme) and Italian (Gianni Diurno) have been updated.
 
 = 2.4 =
 
