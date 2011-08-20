@@ -12,11 +12,6 @@ function wpcf7_messages() {
 			'default' => __( 'Failed to send your message. Please try later or contact administrator by other way.', 'wpcf7' )
 		),
 
-		'akismet_says_spam' => array(
-			'description' => __( "Akismet judged the sending activity as spamming", 'wpcf7' ),
-			'default' => __( 'Failed to send your message. Please try later or contact administrator by other way.', 'wpcf7' )
-		),
-
 		'validation_error' => array(
 			'description' => __( "Validation errors occurred", 'wpcf7' ),
 			'default' => __( 'Validation errors occurred. Please confirm the fields and submit it again.', 'wpcf7' )
@@ -39,6 +34,21 @@ function wpcf7_messages() {
 	);
 
 	return apply_filters( 'wpcf7_messages', $messages );
+}
+
+function wpcf7_get_default_template( $prop = 'form' ) {
+	if ( 'form' == $prop )
+		$template = wpcf7_default_form_template();
+	elseif ( 'mail' == $prop )
+		$template = wpcf7_default_mail_template();
+	elseif ( 'mail_2' == $prop )
+		$template = wpcf7_default_mail_2_template();
+	elseif ( 'messages' == $prop )
+		$template = wpcf7_default_messages_template();
+	else
+		$template = null;
+
+	return apply_filters( 'wpcf7_default_template', $template, $prop );
 }
 
 function wpcf7_default_form_template() {
@@ -95,27 +105,13 @@ function wpcf7_default_messages_template() {
 	return $messages;
 }
 
-function wpcf7_is_multisite() { // will be removed when WordPress 2.9 is not supported
-	if ( function_exists( 'is_multisite' ) )
-		return is_multisite();
-
-	return false;
-}
-
-function wpcf7_is_main_site() { // will be removed when WordPress 2.9 is not supported
-	if ( function_exists( 'is_main_site' ) )
-		return is_main_site();
-
-	return false;
-}
-
 function wpcf7_upload_dir( $type = false ) {
 	global $switched;
 
 	$siteurl = get_option( 'siteurl' );
 	$upload_path = trim( get_option( 'upload_path' ) );
 
-	$main_override = wpcf7_is_multisite() && defined( 'MULTISITE' ) && wpcf7_is_main_site();
+	$main_override = is_multisite() && defined( 'MULTISITE' ) && is_main_site();
 
 	if ( empty( $upload_path ) ) {
 		$dir = WP_CONTENT_DIR . '/uploads';
@@ -145,7 +141,7 @@ function wpcf7_upload_dir( $type = false ) {
 		$url = trailingslashit( $siteurl ) . UPLOADS;
 	}
 
-	if ( wpcf7_is_multisite() && ! $main_override
+	if ( is_multisite() && ! $main_override
 	&& ( ! isset( $switched ) || $switched === false ) ) {
 
 		if ( defined( 'BLOGUPLOADDIR' ) )
