@@ -253,7 +253,8 @@ class WPCF7_ContactForm {
 			if ( $this->mail_2['active'] )
 				$additional_mail[] = $this->mail_2;
 
-			$additional_mail = apply_filters( 'wpcf7_additional_mail', $additional_mail, $this );
+			$additional_mail = apply_filters_ref_array( 'wpcf7_additional_mail',
+				array( $additional_mail, &$this ) );
 
 			foreach ( $additional_mail as $mail )
 				$this->compose_and_send_mail( $mail );
@@ -294,8 +295,9 @@ class WPCF7_ContactForm {
 			$attachments[] = $path;
 		}
 
-		extract( apply_filters( 'wpcf7_mail_components', compact(
-			'subject', 'sender', 'body', 'recipient', 'additional_headers', 'attachments' ) ) );
+		extract( apply_filters_ref_array( 'wpcf7_mail_components', array( 
+			compact( 'subject', 'sender', 'body', 'recipient', 'additional_headers', 'attachments' ),
+			&$this ) ) );
 
 		$headers = "From: $sender\n";
 
@@ -408,14 +410,11 @@ class WPCF7_ContactForm {
 		$post_id = wp_insert_post( $postarr );
 
 		if ( $post_id ) {
-			$props = apply_filters( 'wpcf7_contact_form_properties',
-				array( 'form', 'mail', 'mail_2', 'messages', 'additional_settings' ),
-				'save' );
-
-			foreach ( (array) $props as $prop ) {
-				if ( isset( $this->{$prop} ) )
-					update_post_meta( $post_id, $prop, $this->{$prop} );
-			}
+			update_post_meta( $post_id, 'form', $this->form );
+			update_post_meta( $post_id, 'mail', $this->mail );
+			update_post_meta( $post_id, 'mail_2', $this->mail_2 );
+			update_post_meta( $post_id, 'messages', $this->messages );
+			update_post_meta( $post_id, 'additional_settings', $this->additional_settings );
 
 			if ( $this->initial ) {
 				$this->initial = false;
@@ -436,12 +435,13 @@ class WPCF7_ContactForm {
 		$new->initial = true;
 		$new->title = $this->title . '_copy';
 
-		$props = apply_filters( 'wpcf7_contact_form_properties',
-			array( 'form', 'mail', 'mail_2', 'messages', 'additional_settings' ),
-			'copy' );
+		$new->form = $this->form;
+		$new->mail = $this->mail;
+		$new->mail_2 = $this->mail_2;
+		$new->messages = $this->messages;
+		$new->additional_settings = $this->additional_settings;
 
-		foreach ( (array) $props as $prop )
-			$new->{$prop} = $this->{$prop};
+		$new = apply_filters_ref_array( 'wpcf7_copy', array( &$new, &$this ) );
 
 		return $new;
 	}
@@ -467,14 +467,15 @@ function wpcf7_contact_form( $id ) {
 	$contact_form->id = $post->ID;
 	$contact_form->title = $post->post_title;
 
-	$props = apply_filters( 'wpcf7_contact_form_properties',
-		array( 'form', 'mail', 'mail_2', 'messages', 'additional_settings' ),
-		'new' );
-
-	foreach ( (array) $props as $prop )
-		$contact_form->{$prop} = get_post_meta( $post->ID, $prop, true );
+	$contact_form->form = get_post_meta( $post->ID, 'form', true );
+	$contact_form->mail = get_post_meta( $post->ID, 'mail', true );
+	$contact_form->mail_2 = get_post_meta( $post->ID, 'mail_2', true );
+	$contact_form->messages = get_post_meta( $post->ID, 'messages', true );
+	$contact_form->additional_settings = get_post_meta( $post->ID, 'additional_settings', true );
 
 	$contact_form->upgrade();
+
+	$contact_form = apply_filters_ref_array( 'wpcf7_contact_form', array( &$contact_form ) );
 
 	return $contact_form;
 }
@@ -522,15 +523,17 @@ function wpcf7_get_contact_form_default_pack( $args = '' ) {
 
 	$contact_form->title = ( $title ? $title : __( 'Untitled', 'wpcf7' ) );
 
-	$props = apply_filters( 'wpcf7_contact_form_properties',
-		array( 'form', 'mail', 'mail_2', 'messages', 'additional_settings' ),
-		'default' );
-
-	foreach ( (array) $props as $prop )
-		$contact_form->{$prop} = wpcf7_get_default_template( $prop );
+	$contact_form->form = wpcf7_get_default_template( 'form' );
+	$contact_form->mail = wpcf7_get_default_template( 'mail' );
+	$contact_form->mail_2 = wpcf7_get_default_template( 'mail_2' );
+	$contact_form->messages = wpcf7_get_default_template( 'messages' );
+	$contact_form->additional_settings = wpcf7_get_default_template( 'additional_settings' );
 
 	if ( isset( $mo_orig ) )
 		$l10n['wpcf7'] = $mo_orig;
+
+	$contact_form = apply_filters_ref_array( 'wpcf7_contact_form_default_pack',
+		array( &$contact_form, $args ) );
 
 	return $contact_form;
 }

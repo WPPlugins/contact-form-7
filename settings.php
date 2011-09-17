@@ -81,9 +81,31 @@ function wpcf7_load_modules() {
 	}
 }
 
+/* L10N */
+
+add_action( 'init', 'wpcf7_load_plugin_textdomain' );
+
+function wpcf7_load_plugin_textdomain() {
+	load_plugin_textdomain( 'wpcf7', false, 'contact-form-7/languages' );
+}
+
+/* Custom Post Type: Contact Form */
+
+add_action( 'init', 'wpcf7_register_post_types' );
+
+function wpcf7_register_post_types() {
+	$args = array(
+		'labels' => array(
+			'name' => __( 'Contact Forms', 'wpcf7' ),
+			'singular_name' => __( 'Contact Form', 'wpcf7' ) )
+	);
+
+	register_post_type( 'wpcf7_contact_form', $args );
+}
+
 /* Upgrading */
 
-add_action( 'plugins_loaded', 'wpcf7_upgrade', 5 );
+add_action( 'init', 'wpcf7_upgrade' );
 
 function wpcf7_upgrade() {
 	$opt = get_option( 'wpcf7' );
@@ -107,28 +129,6 @@ function wpcf7_upgrade() {
 		wp_redirect( wpcf7_admin_url( array( 'page' => 'wpcf7' ) ) );
 		exit();
 	}
-}
-
-/* L10N */
-
-add_action( 'init', 'wpcf7_load_plugin_textdomain' );
-
-function wpcf7_load_plugin_textdomain() {
-	load_plugin_textdomain( 'wpcf7', false, 'contact-form-7/languages' );
-}
-
-/* Custom Post Type: Contact Form */
-
-add_action( 'init', 'wpcf7_register_post_types' );
-
-function wpcf7_register_post_types() {
-	$args = array(
-		'labels' => array(
-			'name' => __( 'Contact Forms', 'wpcf7' ),
-			'singular_name' => __( 'Contact Form', 'wpcf7' ) )
-	);
-
-	register_post_type( 'wpcf7_contact_form', $args );
 }
 
 add_action( 'wpcf7_upgrade', 'wpcf7_convert_to_cpt', 10, 2 );
@@ -177,30 +177,20 @@ function wpcf7_convert_to_cpt( $new_ver, $old_ver ) {
 add_action( 'activate_' . WPCF7_PLUGIN_BASENAME, 'wpcf7_install' );
 
 function wpcf7_install() {
-	$opt = get_option( 'wpcf7' );
-
-	if ( ! is_array( $opt ) )
-		$opt = array();
-
-	$contact_forms = get_posts( array(
-		'numberposts' => -1,
-		'orderby' => 'ID',
-		'order' => 'ASC',
-		'post_type' => 'wpcf7_contact_form' ) );
-
-	if ( $opt || $contact_forms )
+	if ( $opt = get_option( 'wpcf7' ) )
 		return;
 
 	wpcf7_load_plugin_textdomain();
+	wpcf7_register_post_types();
+	wpcf7_upgrade();
+
+	if ( get_posts( array( 'post_type' => 'wpcf7_contact_form' ) ) )
+		return;
 
 	$contact_form = wpcf7_get_contact_form_default_pack(
 		array( 'title' => sprintf( __( 'Contact form %d', 'wpcf7' ), 1 ) ) );
 
 	$contact_form->save();
-
-	$opt['version'] = WPCF7_VERSION;
-
-	update_option( 'wpcf7', $opt );
 }
 
 ?>

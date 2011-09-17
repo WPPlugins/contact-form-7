@@ -68,7 +68,7 @@ It is hard to continue development and support for this plugin without contribut
 * Sinhala (si_LK) - [Nitin Aggarwal](http://offshoreally.com/)
 * Slovak (sk) - [Patrik Bóna](http://www.mrhead.sk/)
 * Slovene (sl_SI) - [Mihael Simonič](http://smihael.bplaced.net)
-* Spanish (es_ES) - [Jordi Sancho](http://www.qasolutions.net/blog), [Vladimir Prieto](http://vladimir.prie.to/), [Federico Mikaelian](http://www.fedemika.com.ar/), [Matias Baldanza](http://matiasbaldanza.com/)
+* Spanish (es_ES) - [Jordi Sancho](http://www.qasolutions.net/blog), [Vladimir Prieto](http://vladimir.prie.to/), [Federico Mikaelian](http://www.fedemika.com.ar/), [Matias Baldanza](http://matiasbaldanza.com/), [Carlos Agnese](http://albumdecarlitos.com.ar/)
 * Swedish (sv_SE) - [Fredrik Jonsson](http://www.fredda-o-ac.se/), [the Swedish community](http://wp-support.se/)
 * Tamil (ta) - [Nitin Aggarwal](http://offshoreally.com/)
 * Thai (th) - [kazama](http://blog.wordthai.com/)
@@ -97,3 +97,18 @@ Do you have questions or issues with Contact Form 7? Use these support channels 
 1. [WordPress HelpCenter](http://wphelpcenter.com/)
 
 [Support](http://contactform7.com/support/)
+
+== Screenshots ==
+
+1. screenshot-1.png 
+
+== Changelog ==
+
+= 3.0 =
+
+* Contact Form 7 3.0 utilizes Custom Post Types feature to save contact forms. It does not create its own table (contact_form_7) anymore.
+* New shortcode format has been introduced. New format is like this: [contact-form-7 id="1234" title="Contact form 1"]. Note that new one starts with contact-form-7 instead of contact-form.
+* Contact Form 7 3.0 works with WordPress version 3.2 or higher. This also means that you need PHP version 5.2.4 or higher and MySQL version 5.0 or higher (these are minimum requirements for WordPress 3.2).
+* Translations for Japanese, German, Georgian, Italian and Spanish have been updated.
+* Admin panel has been enhanced. Now it uses meta boxes.
+* Bundled jquery.form.js has been updated to 2.84.
