@@ -1,68 +1,71 @@
 <?php
 /**
-** A base module for [quiz]
-**/
+ * Quiz
+ *
+ * @link https://contactform7.com/quiz/
+ */
 
-/* Shortcode handler */
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-wpcf7_add_shortcode( 'quiz', 'wpcf7_quiz_shortcode_handler', true );
+/* form_tag handler */
 
-function wpcf7_quiz_shortcode_handler( $tag ) {
-	if ( ! is_array( $tag ) )
+add_action( 'wpcf7_init', 'wpcf7_add_form_tag_quiz', 10, 0 );
+
+function wpcf7_add_form_tag_quiz() {
+	wpcf7_add_form_tag( 'quiz',
+		'wpcf7_quiz_form_tag_handler',
+		array(
+			'name-attr' => true,
+			'do-not-store' => true,
+			'not-for-mail' => true,
+			'not-for-stripe' => true,
+		)
+	);
+}
+
+function wpcf7_quiz_form_tag_handler( $tag ) {
+	if ( empty( $tag->name ) ) {
 		return '';
-
-	$type = $tag['type'];
-	$name = $tag['name'];
-	$options = (array) $tag['options'];
-	$pipes = $tag['pipes'];
-
-	if ( empty( $name ) )
-		return '';
-
-	$validation_error = wpcf7_get_validation_error( $name );
-
-	$atts = $id_att = $size_att = $maxlength_att = $tabindex_att = '';
-
-	$class_att = wpcf7_form_controls_class( $type );
-
-	if ( $validation_error )
-		$class_att .= ' wpcf7-not-valid';
-
-	foreach ( $options as $option ) {
-		if ( preg_match( '%^id:([-0-9a-zA-Z_]+)$%', $option, $matches ) ) {
-			$id_att = $matches[1];
-
-		} elseif ( preg_match( '%^class:([-0-9a-zA-Z_]+)$%', $option, $matches ) ) {
-			$class_att .= ' ' . $matches[1];
-
-		} elseif ( preg_match( '%^([0-9]*)[/x]([0-9]*)$%', $option, $matches ) ) {
-			$size_att = (int) $matches[1];
-			$maxlength_att = (int) $matches[2];
-
-		} elseif ( preg_match( '%^tabindex:(\d+)$%', $option, $matches ) ) {
-			$tabindex_att = (int) $matches[1];
-
-		}
 	}
 
-	if ( $id_att )
-		$atts .= ' id="' . trim( $id_att ) . '"';
+	$validation_error = wpcf7_get_validation_error( $tag->name );
 
-	if ( $class_att )
-		$atts .= ' class="' . trim( $class_att ) . '"';
+	$class = wpcf7_form_controls_class( $tag->type );
 
-	if ( $size_att )
-		$atts .= ' size="' . $size_att . '"';
-	else
-		$atts .= ' size="40"'; // default size
+	if ( $validation_error ) {
+		$class .= ' wpcf7-not-valid';
+	}
 
-	if ( $maxlength_att )
-		$atts .= ' maxlength="' . $maxlength_att . '"';
+	$atts = array();
 
-	if ( '' !== $tabindex_att )
-		$atts .= sprintf( ' tabindex="%d"', $tabindex_att );
+	$atts['size'] = $tag->get_size_option( '40' );
+	$atts['maxlength'] = $tag->get_maxlength_option();
+	$atts['minlength'] = $tag->get_minlength_option();
 
-	if ( is_a( $pipes, 'WPCF7_Pipes' ) && ! $pipes->zero() ) {
+	if ( $atts['maxlength'] and $atts['minlength']
+	and $atts['maxlength'] < $atts['minlength'] ) {
+		unset( $atts['maxlength'], $atts['minlength'] );
+	}
+
+	$atts['class'] = $tag->get_class_option( $class );
+	$atts['id'] = $tag->get_id_option();
+	$atts['tabindex'] = $tag->get_option( 'tabindex', 'signed_int', true );
+	$atts['autocomplete'] = 'off';
+	$atts['aria-required'] = 'true';
+
+	if ( $validation_error ) {
+		$atts['aria-invalid'] = 'true';
+		$atts['aria-describedby'] = wpcf7_get_validation_error_reference(
+			$tag->name
+		);
+	} else {
+		$atts['aria-invalid'] = 'false';
+	}
+
+	$pipes = $tag->pipes;
+
+	if ( $pipes instanceof WPCF7_Pipes
+	and ! $pipes->zero() ) {
 		$pipe = $pipes->random_pipe();
 		$question = $pipe->before;
 		$answer = $pipe->after;
@@ -72,13 +75,22 @@ function wpcf7_quiz_shortcode_handler( $tag ) {
 		$answer = '2';
 	}
 
-	$answer = wpcf7_canonicalize( $answer );
+	$answer = wpcf7_canonicalize( $answer, array(
+		'strip_separators' => true,
+	) );
 
-	$html = '<span class="wpcf7-quiz-label">' . esc_html( $question ) . '</span>&nbsp;';
-	$html .= '<input type="text" name="' . $name . '"' . $atts . ' />';
-	$html .= '<input type="hidden" name="_wpcf7_quiz_answer_' . $name . '" value="' . wp_hash( $answer, 'wpcf7_quiz' ) . '" />';
+	$atts['type'] = 'text';
+	$atts['name'] = $tag->name;
 
-	$html = '<span class="wpcf7-form-control-wrap ' . $name . '">' . $html . $validation_error . '</span>';
+	$html = sprintf(
+		'<span class="wpcf7-form-control-wrap" data-name="%1$s"><label><span class="wpcf7-quiz-label">%2$s</span> <input %3$s /></label><input type="hidden" name="_wpcf7_quiz_answer_%4$s" value="%5$s" />%6$s</span>',
+		esc_attr( $tag->name ),
+		esc_html( $question ),
+		wpcf7_format_atts( $atts ),
+		$tag->name,
+		wp_hash( $answer, 'wpcf7_quiz' ),
+		$validation_error
+	);
 
 	return $html;
 }
@@ -89,16 +101,20 @@ function wpcf7_quiz_shortcode_handler( $tag ) {
 add_filter( 'wpcf7_validate_quiz', 'wpcf7_quiz_validation_filter', 10, 2 );
 
 function wpcf7_quiz_validation_filter( $result, $tag ) {
-	$type = $tag['type'];
-	$name = $tag['name'];
+	$name = $tag->name;
 
-	$answer = wpcf7_canonicalize( $_POST[$name] );
+	$answer = wpcf7_superglobal_post( $name );
+
+	$answer = wpcf7_canonicalize( $answer, array(
+		'strip_separators' => true,
+	) );
+
 	$answer_hash = wp_hash( $answer, 'wpcf7_quiz' );
-	$expected_hash = $_POST['_wpcf7_quiz_answer_' . $name];
 
-	if ( $answer_hash != $expected_hash ) {
-		$result['valid'] = false;
-		$result['reason'][$name] = wpcf7_get_message( 'quiz_answer_not_correct' );
+	$expected_hash = wpcf7_superglobal_post( '_wpcf7_quiz_answer_' . $name );
+
+	if ( ! hash_equals( $expected_hash, $answer_hash ) ) {
+		$result->invalidate( $tag, wpcf7_get_message( 'quiz_answer_not_correct' ) );
 	}
 
 	return $result;
@@ -107,17 +123,19 @@ function wpcf7_quiz_validation_filter( $result, $tag ) {
 
 /* Ajax echo filter */
 
-add_filter( 'wpcf7_ajax_onload', 'wpcf7_quiz_ajax_refill' );
-add_filter( 'wpcf7_ajax_json_echo', 'wpcf7_quiz_ajax_refill' );
+add_filter( 'wpcf7_refill_response', 'wpcf7_quiz_ajax_refill', 10, 1 );
+add_filter( 'wpcf7_feedback_response', 'wpcf7_quiz_ajax_refill', 10, 1 );
 
 function wpcf7_quiz_ajax_refill( $items ) {
-	if ( ! is_array( $items ) )
+	if ( ! is_array( $items ) ) {
 		return $items;
+	}
 
-	$fes = wpcf7_scan_shortcode( array( 'type' => 'quiz' ) );
+	$fes = wpcf7_scan_form_tags( array( 'type' => 'quiz' ) );
 
-	if ( empty( $fes ) )
+	if ( empty( $fes ) ) {
 		return $items;
+	}
 
 	$refill = array();
 
@@ -125,10 +143,12 @@ function wpcf7_quiz_ajax_refill( $items ) {
 		$name = $fe['name'];
 		$pipes = $fe['pipes'];
 
-		if ( empty( $name ) )
+		if ( empty( $name ) ) {
 			continue;
+		}
 
-		if ( is_a( $pipes, 'WPCF7_Pipes' ) && ! $pipes->zero() ) {
+		if ( $pipes instanceof WPCF7_Pipes
+		and ! $pipes->zero() ) {
 			$pipe = $pipes->random_pipe();
 			$question = $pipe->before;
 			$answer = $pipe->after;
@@ -138,13 +158,16 @@ function wpcf7_quiz_ajax_refill( $items ) {
 			$answer = '2';
 		}
 
-		$answer = wpcf7_canonicalize( $answer );
+		$answer = wpcf7_canonicalize( $answer, array(
+			'strip_separators' => true,
+		) );
 
 		$refill[$name] = array( $question, wp_hash( $answer, 'wpcf7_quiz' ) );
 	}
 
-	if ( ! empty( $refill ) )
+	if ( ! empty( $refill ) ) {
 		$items['quiz'] = $refill;
+	}
 
 	return $items;
 }
@@ -152,65 +175,134 @@ function wpcf7_quiz_ajax_refill( $items ) {
 
 /* Messages */
 
-add_filter( 'wpcf7_messages', 'wpcf7_quiz_messages' );
+add_filter( 'wpcf7_messages', 'wpcf7_quiz_messages', 10, 1 );
 
 function wpcf7_quiz_messages( $messages ) {
-	return array_merge( $messages, array( 'quiz_answer_not_correct' => array(
-		'description' => __( "Sender doesn't enter the correct answer to the quiz", 'wpcf7' ),
-		'default' => __( 'Your answer is not correct.', 'wpcf7' )
-	) ) );
+	$messages = array_merge( $messages, array(
+		'quiz_answer_not_correct' => array(
+			'description' =>
+				__( "Sender does not enter the correct answer to the quiz", 'contact-form-7' ),
+			'default' =>
+				__( "The answer to the quiz is incorrect.", 'contact-form-7' ),
+		),
+	) );
+
+	return $messages;
 }
 
 
 /* Tag generator */
 
-add_action( 'admin_init', 'wpcf7_add_tag_generator_quiz', 40 );
+add_action( 'wpcf7_admin_init', 'wpcf7_add_tag_generator_quiz', 40, 0 );
 
 function wpcf7_add_tag_generator_quiz() {
-	if ( ! function_exists( 'wpcf7_add_tag_generator' ) )
-		return;
+	$tag_generator = WPCF7_TagGenerator::get_instance();
 
-	wpcf7_add_tag_generator( 'quiz', __( 'Quiz', 'wpcf7' ),
-		'wpcf7-tg-pane-quiz', 'wpcf7_tg_pane_quiz' );
+	$tag_generator->add( 'quiz', __( 'quiz', 'contact-form-7' ),
+		'wpcf7_tag_generator_quiz',
+		array( 'version' => '2' )
+	);
 }
 
-function wpcf7_tg_pane_quiz( &$contact_form ) {
-?>
-<div id="wpcf7-tg-pane-quiz" class="hidden">
-<form action="">
-<table>
-<tr><td><?php echo esc_html( __( 'Name', 'wpcf7' ) ); ?><br /><input type="text" name="name" class="tg-name oneline" /></td><td></td></tr>
-</table>
+function wpcf7_tag_generator_quiz( $contact_form, $options ) {
+	$field_types = array(
+		'quiz' => array(
+			'display_name' => __( 'Quiz', 'contact-form-7' ),
+			'heading' => __( 'Quiz form-tag generator', 'contact-form-7' ),
+			'description' => sprintf(
+				/* translators: %s: URL to quiz field doc */
+				__( 'Generates a form-tag for a <a href="%s">quiz</a>.', 'contact-form-7' ),
+				'https://contactform7.com/quiz/'
+			),
+		),
+	);
 
-<table>
-<tr>
-<td><code>id</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
-<input type="text" name="id" class="idvalue oneline option" /></td>
+	$tgg = new WPCF7_TagGeneratorGenerator( $options['content'] );
 
-<td><code>class</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
-<input type="text" name="class" class="classvalue oneline option" /></td>
-</tr>
+	$formatter = new WPCF7_HTMLFormatter();
 
-<tr>
-<td><code>size</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
-<input type="text" name="size" class="numeric oneline option" /></td>
+	$formatter->append_start_tag( 'header', array(
+		'class' => 'description-box',
+	) );
 
-<td><code>maxlength</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
-<input type="text" name="maxlength" class="numeric oneline option" /></td>
-</tr>
+	$formatter->append_start_tag( 'h3' );
 
-<tr>
-<td><?php echo esc_html( __( 'Quizzes', 'wpcf7' ) ); ?><br />
-<textarea name="values"></textarea><br />
-<span style="font-size: smaller"><?php echo esc_html( __( "* quiz|answer (e.g. 1+1=?|2)", 'wpcf7' ) ); ?></span>
-</td>
-</tr>
-</table>
+	$formatter->append_preformatted(
+		esc_html( $field_types['quiz']['heading'] )
+	);
 
-<div class="tg-tag"><?php echo esc_html( __( "Copy this code and paste it into the form left.", 'wpcf7' ) ); ?><br /><input type="text" name="quiz" class="tag" readonly="readonly" onfocus="this.select()" /></div>
-</form>
-</div>
-<?php
+	$formatter->end_tag( 'h3' );
+
+	$formatter->append_start_tag( 'p' );
+
+	$formatter->append_preformatted(
+		wp_kses_data( $field_types['quiz']['description'] )
+	);
+
+	$formatter->end_tag( 'header' );
+
+	$formatter->append_start_tag( 'div', array(
+		'class' => 'control-box',
+	) );
+
+	$formatter->call_user_func( static function () use ( $tgg, $field_types ) {
+		$tgg->print( 'field_type', array(
+			'select_options' => array(
+				'quiz' => $field_types['quiz']['display_name'],
+			),
+		) );
+
+		$tgg->print( 'field_name' );
+
+		$tgg->print( 'class_attr' );
+	} );
+
+	$formatter->append_start_tag( 'fieldset' );
+
+	$formatter->append_start_tag( 'legend', array(
+		'id' => $tgg->ref( 'selectable-values-legend' ),
+	) );
+
+	$formatter->append_preformatted(
+		esc_html( __( 'Questions and answers', 'contact-form-7' ) )
+	);
+
+	$formatter->end_tag( 'legend' );
+
+	$formatter->append_start_tag( 'span', array(
+		'id' => $tgg->ref( 'selectable-values-description' ),
+	) );
+
+	$formatter->append_preformatted(
+		esc_html( __( 'One pipe-separated question-answer pair (question|answer) per line.', 'contact-form-7' ) )
+	);
+
+	$formatter->end_tag( 'span' );
+
+	$formatter->append_start_tag( 'br' );
+
+	$formatter->append_start_tag( 'textarea', array(
+		'required' => true,
+		'data-tag-part' => 'value',
+		'aria-labelledby' => $tgg->ref( 'selectable-values-legend' ),
+		'aria-describedby' => $tgg->ref( 'selectable-values-description' ),
+	) );
+
+	$formatter->append_preformatted(
+		esc_html( __( 'The capital of Brazil? | Rio', 'contact-form-7' ) )
+	);
+
+	$formatter->end_tag( 'textarea' );
+
+	$formatter->end_tag( 'div' );
+
+	$formatter->append_start_tag( 'footer', array(
+		'class' => 'insert-box',
+	) );
+
+	$formatter->call_user_func( static function () use ( $tgg, $field_types ) {
+		$tgg->print( 'insert_box_content' );
+	} );
+
+	$formatter->print();
 }
-
-?>

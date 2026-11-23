@@ -1,50 +1,41 @@
 <?php
 /**
-** A base module for [submit]
-**/
+ * Submit button
+ *
+ * @link https://contactform7.com/submit-button/
+ */
 
-/* Shortcode handler */
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-wpcf7_add_shortcode( 'submit', 'wpcf7_submit_shortcode_handler' );
+/* form_tag handler */
 
-function wpcf7_submit_shortcode_handler( $tag ) {
-	if ( ! is_array( $tag ) )
-		return '';
+add_action( 'wpcf7_init', 'wpcf7_add_form_tag_submit', 10, 0 );
 
-	$options = (array) $tag['options'];
-	$values = (array) $tag['values'];
+function wpcf7_add_form_tag_submit() {
+	wpcf7_add_form_tag( 'submit', 'wpcf7_submit_form_tag_handler' );
+}
 
-	$atts = $id_att = $tabindex_att = '';
+function wpcf7_submit_form_tag_handler( $tag ) {
+	$class = wpcf7_form_controls_class( $tag->type, 'has-spinner' );
 
-	$class_att = wpcf7_form_controls_class( 'submit' );
+	$atts = array();
 
-	foreach ( $options as $option ) {
-		if ( preg_match( '%^id:([-0-9a-zA-Z_]+)$%', $option, $matches ) ) {
-			$id_att = $matches[1];
+	$atts['class'] = $tag->get_class_option( $class );
+	$atts['id'] = $tag->get_id_option();
+	$atts['tabindex'] = $tag->get_option( 'tabindex', 'signed_int', true );
 
-		} elseif ( preg_match( '%^class:([-0-9a-zA-Z_]+)$%', $option, $matches ) ) {
-			$class_att .= ' ' . $matches[1];
+	$value = isset( $tag->values[0] ) ? $tag->values[0] : '';
 
-		} elseif ( preg_match( '%^tabindex:(\d+)$%', $option, $matches ) ) {
-			$tabindex_att = (int) $matches[1];
-
-		}
+	if ( empty( $value ) ) {
+		$value = __( 'Send', 'contact-form-7' );
 	}
 
-	if ( $id_att )
-		$atts .= ' id="' . trim( $id_att ) . '"';
+	$atts['type'] = 'submit';
+	$atts['value'] = $value;
 
-	if ( $class_att )
-		$atts .= ' class="' . trim( $class_att ) . '"';
+	$atts = wpcf7_format_atts( $atts );
 
-	if ( '' !== $tabindex_att )
-		$atts .= sprintf( ' tabindex="%d"', $tabindex_att );
-
-	$value = isset( $values[0] ) ? $values[0] : '';
-	if ( empty( $value ) )
-		$value = __( 'Send', 'wpcf7' );
-
-	$html = '<input type="submit" value="' . esc_attr( $value ) . '"' . $atts . ' />';
+	$html = sprintf( '<input %1$s />', $atts );
 
 	return $html;
 }
@@ -52,41 +43,81 @@ function wpcf7_submit_shortcode_handler( $tag ) {
 
 /* Tag generator */
 
-add_action( 'admin_init', 'wpcf7_add_tag_generator_submit', 55 );
+add_action( 'wpcf7_admin_init', 'wpcf7_add_tag_generator_submit', 55, 0 );
 
 function wpcf7_add_tag_generator_submit() {
-	if ( ! function_exists( 'wpcf7_add_tag_generator' ) )
-		return;
+	$tag_generator = WPCF7_TagGenerator::get_instance();
 
-	wpcf7_add_tag_generator( 'submit', __( 'Submit button', 'wpcf7' ),
-		'wpcf7-tg-pane-submit', 'wpcf7_tg_pane_submit', array( 'nameless' => 1 ) );
+	$tag_generator->add( 'submit', __( 'submit', 'contact-form-7' ),
+		'wpcf7_tag_generator_submit',
+		array( 'version' => '2' )
+	);
 }
 
-function wpcf7_tg_pane_submit( &$contact_form ) {
-?>
-<div id="wpcf7-tg-pane-submit" class="hidden">
-<form action="">
-<table>
-<tr>
-<td><code>id</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
-<input type="text" name="id" class="idvalue oneline option" /></td>
+function wpcf7_tag_generator_submit( $contact_form, $options ) {
+	$field_types = array(
+		'submit' => array(
+			'display_name' => __( 'Submit button', 'contact-form-7' ),
+			'heading' => __( 'Submit button form-tag generator', 'contact-form-7' ),
+			'description' => sprintf(
+				/* translators: %s: URL to submit button doc */
+				__( 'Generates a form-tag for a <a href="%s">submit button</a>.', 'contact-form-7' ),
+				'https://contactform7.com/submit-button/'
+			),
+		),
+	);
 
-<td><code>class</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
-<input type="text" name="class" class="classvalue oneline option" /></td>
-</tr>
+	$tgg = new WPCF7_TagGeneratorGenerator( $options['content'] );
 
-<tr>
-<td><?php echo esc_html( __( 'Label', 'wpcf7' ) ); ?> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
-<input type="text" name="values" class="oneline" /></td>
+	$formatter = new WPCF7_HTMLFormatter();
 
-<td></td>
-</tr>
-</table>
+	$formatter->append_start_tag( 'header', array(
+		'class' => 'description-box',
+	) );
 
-<div class="tg-tag"><?php echo esc_html( __( "Copy this code and paste it into the form left.", 'wpcf7' ) ); ?><br /><input type="text" name="submit" class="tag" readonly="readonly" onfocus="this.select()" /></div>
-</form>
-</div>
-<?php
+	$formatter->append_start_tag( 'h3' );
+
+	$formatter->append_preformatted(
+		esc_html( $field_types['submit']['heading'] )
+	);
+
+	$formatter->end_tag( 'h3' );
+
+	$formatter->append_start_tag( 'p' );
+
+	$formatter->append_preformatted(
+		wp_kses_data( $field_types['submit']['description'] )
+	);
+
+	$formatter->end_tag( 'header' );
+
+	$formatter->append_start_tag( 'div', array(
+		'class' => 'control-box',
+	) );
+
+	$formatter->call_user_func( static function () use ( $tgg, $field_types ) {
+		$tgg->print( 'field_type', array(
+			'select_options' => array(
+				'submit' => $field_types['submit']['display_name'],
+			),
+		) );
+
+		$tgg->print( 'class_attr' );
+
+		$tgg->print( 'default_value', array(
+			'title' => __( 'Label', 'contact-form-7' ),
+		) );
+	} );
+
+	$formatter->end_tag( 'div' );
+
+	$formatter->append_start_tag( 'footer', array(
+		'class' => 'insert-box',
+	) );
+
+	$formatter->call_user_func( static function () use ( $tgg, $field_types ) {
+		$tgg->print( 'insert_box_content' );
+	} );
+
+	$formatter->print();
 }
-
-?>

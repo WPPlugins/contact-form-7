@@ -1,185 +1,309 @@
 <?php
 /**
-** A base module for [select] and [select*]
-**/
+ * Drop-down menu
+ *
+ * @link https://contactform7.com/checkboxes-radio-buttons-and-menus/
+ */
 
-/* Shortcode handler */
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-wpcf7_add_shortcode( 'select', 'wpcf7_select_shortcode_handler', true );
-wpcf7_add_shortcode( 'select*', 'wpcf7_select_shortcode_handler', true );
+/* form_tag handler */
 
-function wpcf7_select_shortcode_handler( $tag ) {
-	if ( ! is_array( $tag ) )
+add_action( 'wpcf7_init', 'wpcf7_add_form_tag_select', 10, 0 );
+
+function wpcf7_add_form_tag_select() {
+	wpcf7_add_form_tag( array( 'select', 'select*' ),
+		'wpcf7_select_form_tag_handler',
+		array(
+			'name-attr' => true,
+			'selectable-values' => true,
+		)
+	);
+}
+
+function wpcf7_select_form_tag_handler( $tag ) {
+	if ( empty( $tag->name ) ) {
 		return '';
+	}
 
-	$type = $tag['type'];
-	$name = $tag['name'];
-	$options = (array) $tag['options'];
-	$values = (array) $tag['values'];
-	$labels = (array) $tag['labels'];
+	$validation_error = wpcf7_get_validation_error( $tag->name );
 
-	if ( empty( $name ) )
-		return '';
+	$class = wpcf7_form_controls_class( $tag->type );
 
-	$validation_error = wpcf7_get_validation_error( $name );
+	if ( $validation_error ) {
+		$class .= ' wpcf7-not-valid';
+	}
 
-	$atts = $id_att = $tabindex_att = '';
+	$atts = array();
 
-	$defaults = array();
+	$atts['class'] = $tag->get_class_option( $class );
+	$atts['id'] = $tag->get_id_option();
+	$atts['tabindex'] = $tag->get_option( 'tabindex', 'signed_int', true );
+	$atts['autocomplete'] = $tag->get_autocomplete_option();
 
-	$class_att = wpcf7_form_controls_class( $type );
+	if ( $tag->is_required() ) {
+		$atts['aria-required'] = 'true';
+	}
 
-	if ( $validation_error )
-		$class_att .= ' wpcf7-not-valid';
+	if ( $validation_error ) {
+		$atts['aria-invalid'] = 'true';
+		$atts['aria-describedby'] = wpcf7_get_validation_error_reference(
+			$tag->name
+		);
+	} else {
+		$atts['aria-invalid'] = 'false';
+	}
 
-	foreach ( $options as $option ) {
-		if ( preg_match( '%^id:([-0-9a-zA-Z_]+)$%', $option, $matches ) ) {
-			$id_att = $matches[1];
+	$multiple = $tag->has_option( 'multiple' );
+	$include_blank = $tag->has_option( 'include_blank' );
+	$first_as_label = $tag->has_option( 'first_as_label' );
 
-		} elseif ( preg_match( '%^class:([-0-9a-zA-Z_]+)$%', $option, $matches ) ) {
-			$class_att .= ' ' . $matches[1];
+	if ( $tag->has_option( 'size' ) ) {
+		$size = $tag->get_option( 'size', 'int', true );
 
-		} elseif ( preg_match( '/^default:([0-9_]+)$/', $option, $matches ) ) {
-			$defaults = explode( '_', $matches[1] );
-
-		} elseif ( preg_match( '%^tabindex:(\d+)$%', $option, $matches ) ) {
-			$tabindex_att = (int) $matches[1];
-
+		if ( $size ) {
+			$atts['size'] = $size;
+		} elseif ( $multiple ) {
+			$atts['size'] = 4;
+		} else {
+			$atts['size'] = 1;
 		}
 	}
 
-	if ( $id_att )
-		$atts .= ' id="' . trim( $id_att ) . '"';
+	if ( $data = (array) $tag->get_data_option() ) {
+		$tag->values = array_merge( $tag->values, array_values( $data ) );
+		$tag->labels = array_merge( $tag->labels, array_values( $data ) );
+	}
 
-	if ( $class_att )
-		$atts .= ' class="' . trim( $class_att ) . '"';
+	$values = $tag->values;
+	$labels = $tag->labels;
 
-	if ( '' !== $tabindex_att )
-		$atts .= sprintf( ' tabindex="%d"', $tabindex_att );
+	$default_choice = $tag->get_default_option( null, array(
+		'multiple' => $multiple,
+	) );
 
-	$multiple = (bool) preg_grep( '%^multiple$%', $options );
-	$include_blank = (bool) preg_grep( '%^include_blank$%', $options );
-
-	$empty_select = empty( $values );
-	if ( $empty_select || $include_blank ) {
-		array_unshift( $labels, '---' );
+	if ( $include_blank or empty( $values ) ) {
+		array_unshift(
+			$labels,
+			__( '&#8212;Please choose an option&#8212;', 'contact-form-7' )
+		);
 		array_unshift( $values, '' );
+	} elseif ( $first_as_label ) {
+		$values[0] = '';
 	}
 
 	$html = '';
-
-	$posted = wpcf7_is_posted();
+	$hangover = wpcf7_get_hangover( $tag->name );
 
 	foreach ( $values as $key => $value ) {
-		$selected = false;
-
-		if ( $posted && ! empty( $_POST[$name] ) ) {
-			if ( $multiple && in_array( esc_sql( $value ), (array) $_POST[$name] ) )
-				$selected = true;
-			if ( ! $multiple && $_POST[$name] == esc_sql( $value ) )
-				$selected = true;
+		if ( $hangover ) {
+			$selected = in_array( $value, (array) $hangover, true );
 		} else {
-			if ( ! $empty_select && in_array( $key + 1, (array) $defaults ) )
-				$selected = true;
+			$selected = in_array( $value, (array) $default_choice, true );
 		}
 
-		$selected = $selected ? ' selected="selected"' : '';
+		$item_atts = array(
+			'value' => $value,
+			'selected' => $selected,
+		);
 
-		if ( isset( $labels[$key] ) )
-			$label = $labels[$key];
-		else
-			$label = $value;
+		$label = isset( $labels[$key] ) ? $labels[$key] : $value;
 
-		$html .= '<option value="' . esc_attr( $value ) . '"' . $selected . '>' . esc_html( $label ) . '</option>';
+		$html .= sprintf(
+			'<option %1$s>%2$s</option>',
+			wpcf7_format_atts( $item_atts ),
+			esc_html( $label )
+		);
 	}
 
-	if ( $multiple )
-		$atts .= ' multiple="multiple"';
+	$atts['multiple'] = (bool) $multiple;
+	$atts['name'] = $tag->name . ( $multiple ? '[]' : '' );
 
-	$html = '<select name="' . $name . ( $multiple ? '[]' : '' ) . '"' . $atts . '>' . $html . '</select>';
-
-	$html = '<span class="wpcf7-form-control-wrap ' . $name . '">' . $html . $validation_error . '</span>';
+	$html = sprintf(
+		'<span class="wpcf7-form-control-wrap" data-name="%1$s"><select %2$s>%3$s</select>%4$s</span>',
+		esc_attr( $tag->name ),
+		wpcf7_format_atts( $atts ),
+		$html,
+		$validation_error
+	);
 
 	return $html;
 }
 
 
-/* Validation filter */
+add_action(
+	'wpcf7_swv_create_schema',
+	'wpcf7_swv_add_select_rules',
+	10, 2
+);
 
-add_filter( 'wpcf7_validate_select', 'wpcf7_select_validation_filter', 10, 2 );
-add_filter( 'wpcf7_validate_select*', 'wpcf7_select_validation_filter', 10, 2 );
+function wpcf7_swv_add_select_rules( $schema, $contact_form ) {
+	$tags = $contact_form->scan_form_tags( array(
+		'type' => array( 'select*' ),
+	) );
 
-function wpcf7_select_validation_filter( $result, $tag ) {
-	$type = $tag['type'];
-	$name = $tag['name'];
-
-	if ( isset( $_POST[$name] ) && is_array( $_POST[$name] ) ) {
-		foreach ( $_POST[$name] as $key => $value ) {
-			if ( '' === $value )
-				unset( $_POST[$name][$key] );
-		}
+	foreach ( $tags as $tag ) {
+		$schema->addRule(
+			wpcf7_swv_create_rule( 'required', array(
+				'field' => $tag->name,
+				'error' => wpcf7_get_message( 'invalid_required' ),
+			) )
+		);
 	}
+}
 
-	if ( 'select*' == $type ) {
-		if ( ! isset( $_POST[$name] ) || empty( $_POST[$name] ) && '0' !== $_POST[$name] ) {
-			$result['valid'] = false;
-			$result['reason'][$name] = wpcf7_get_message( 'invalid_required' );
-		}
+
+add_action(
+	'wpcf7_swv_create_schema',
+	'wpcf7_swv_add_select_enum_rules',
+	20, 2
+);
+
+function wpcf7_swv_add_select_enum_rules( $schema, $contact_form ) {
+	$tags = $contact_form->scan_form_tags( array(
+		'basetype' => array( 'select' ),
+	) );
+
+	$values = array_reduce(
+		$tags,
+		function ( $values, $tag ) {
+			if ( ! isset( $values[$tag->name] ) ) {
+				$values[$tag->name] = array();
+			}
+
+			$tag_values = array_merge(
+				(array) $tag->values,
+				(array) $tag->get_data_option()
+			);
+
+			if ( $tag->has_option( 'first_as_label' ) ) {
+				$tag_values = array_slice( $tag_values, 1 );
+			}
+
+			$values[$tag->name] = array_merge(
+				$values[$tag->name],
+				$tag_values
+			);
+
+			return $values;
+		},
+		array()
+	);
+
+	foreach ( $values as $field => $field_values ) {
+		$field_values = array_map(
+			static function ( $value ) {
+				return html_entity_decode(
+					(string) $value,
+					ENT_QUOTES | ENT_HTML5,
+					'UTF-8'
+				);
+			},
+			$field_values
+		);
+
+		$field_values = array_filter(
+			array_unique( $field_values ),
+			static function ( $value ) {
+				return '' !== $value;
+			}
+		);
+
+		$schema->addRule(
+			wpcf7_swv_create_rule( 'enum', array(
+				'field' => $field,
+				'accept' => array_values( $field_values ),
+				'error' => $contact_form->filter_message(
+					__( 'Undefined value was submitted through this field.', 'contact-form-7' )
+				),
+			) )
+		);
 	}
-
-	return $result;
 }
 
 
 /* Tag generator */
 
-add_action( 'admin_init', 'wpcf7_add_tag_generator_menu', 25 );
+add_action( 'wpcf7_admin_init', 'wpcf7_add_tag_generator_menu', 25, 0 );
 
 function wpcf7_add_tag_generator_menu() {
-	if ( ! function_exists( 'wpcf7_add_tag_generator' ) )
-		return;
+	$tag_generator = WPCF7_TagGenerator::get_instance();
 
-	wpcf7_add_tag_generator( 'menu', __( 'Drop-down menu', 'wpcf7' ),
-		'wpcf7-tg-pane-menu', 'wpcf7_tg_pane_menu' );
+	$tag_generator->add( 'menu', __( 'drop-down menu', 'contact-form-7' ),
+		'wpcf7_tag_generator_menu',
+		array( 'version' => '2' )
+	);
 }
 
-function wpcf7_tg_pane_menu( &$contact_form ) {
-?>
-<div id="wpcf7-tg-pane-menu" class="hidden">
-<form action="">
-<table>
-<tr><td><input type="checkbox" name="required" />&nbsp;<?php echo esc_html( __( 'Required field?', 'wpcf7' ) ); ?></td></tr>
-<tr><td><?php echo esc_html( __( 'Name', 'wpcf7' ) ); ?><br /><input type="text" name="name" class="tg-name oneline" /></td><td></td></tr>
-</table>
+function wpcf7_tag_generator_menu( $contact_form, $options ) {
+	$field_types = array(
+		'select' => array(
+			'display_name' => __( 'Drop-down menu', 'contact-form-7' ),
+			'heading' => __( 'Drop-down menu form-tag generator', 'contact-form-7' ),
+			'description' => sprintf(
+				/* translators: %s: URL to drop-down menu doc */
+				__( 'Generates a form-tag for a <a href="%s">drop-down menu</a>.', 'contact-form-7' ),
+				'https://contactform7.com/checkboxes-radio-buttons-and-menus/'
+			),
+		),
+	);
 
-<table>
-<tr>
-<td><code>id</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
-<input type="text" name="id" class="idvalue oneline option" /></td>
+	$tgg = new WPCF7_TagGeneratorGenerator( $options['content'] );
 
-<td><code>class</code> (<?php echo esc_html( __( 'optional', 'wpcf7' ) ); ?>)<br />
-<input type="text" name="class" class="classvalue oneline option" /></td>
-</tr>
+	$formatter = new WPCF7_HTMLFormatter();
 
-<tr>
-<td><?php echo esc_html( __( 'Choices', 'wpcf7' ) ); ?><br />
-<textarea name="values"></textarea><br />
-<span style="font-size: smaller"><?php echo esc_html( __( "* One choice per line.", 'wpcf7' ) ); ?></span>
-</td>
+	$formatter->append_start_tag( 'header', array(
+		'class' => 'description-box',
+	) );
 
-<td>
-<br /><input type="checkbox" name="multiple" class="option" />&nbsp;<?php echo esc_html( __( 'Allow multiple selections?', 'wpcf7' ) ); ?>
-<br /><input type="checkbox" name="include_blank" class="option" />&nbsp;<?php echo esc_html( __( 'Insert a blank item as the first option?', 'wpcf7' ) ); ?>
-</td>
-</tr>
-</table>
+	$formatter->append_start_tag( 'h3' );
 
-<div class="tg-tag"><?php echo esc_html( __( "Copy this code and paste it into the form left.", 'wpcf7' ) ); ?><br /><input type="text" name="select" class="tag" readonly="readonly" onfocus="this.select()" /></div>
+	$formatter->append_preformatted(
+		esc_html( $field_types['select']['heading'] )
+	);
 
-<div class="tg-mail-tag"><?php echo esc_html( __( "And, put this code into the Mail fields below.", 'wpcf7' ) ); ?><br /><span class="arrow">&#11015;</span>&nbsp;<input type="text" class="mail-tag" readonly="readonly" onfocus="this.select()" /></div>
-</form>
-</div>
-<?php
+	$formatter->end_tag( 'h3' );
+
+	$formatter->append_start_tag( 'p' );
+
+	$formatter->append_preformatted(
+		wp_kses_data( $field_types['select']['description'] )
+	);
+
+	$formatter->end_tag( 'header' );
+
+	$formatter->append_start_tag( 'div', array(
+		'class' => 'control-box',
+	) );
+
+	$formatter->call_user_func( static function () use ( $tgg, $field_types ) {
+		$tgg->print( 'field_type', array(
+			'with_required' => true,
+			'select_options' => array(
+				'select' => $field_types['select']['display_name'],
+			),
+		) );
+
+		$tgg->print( 'field_name' );
+
+		$tgg->print( 'class_attr' );
+
+		$tgg->print( 'selectable_values', array(
+			'first_as_label' => true,
+		) );
+	} );
+
+	$formatter->end_tag( 'div' );
+
+	$formatter->append_start_tag( 'footer', array(
+		'class' => 'insert-box',
+	) );
+
+	$formatter->call_user_func( static function () use ( $tgg, $field_types ) {
+		$tgg->print( 'insert_box_content' );
+
+		$tgg->print( 'mail_tag_tip' );
+	} );
+
+	$formatter->print();
 }
-
-?>

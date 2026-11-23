@@ -1,17 +1,27 @@
 <?php
 /**
-** A base module for [response]
-**/
+ * Response message box
+ *
+ * @link https://contactform7.com/locating-response-message-box-anywhere/
+ */
 
-/* Shortcode handler */
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-wpcf7_add_shortcode( 'response', 'wpcf7_response_shortcode_handler' );
+/* form_tag handler */
 
-function wpcf7_response_shortcode_handler( $tag ) {
+add_action( 'wpcf7_init', 'wpcf7_add_form_tag_response', 10, 0 );
+
+function wpcf7_add_form_tag_response() {
+	wpcf7_add_form_tag( 'response',
+		'wpcf7_response_form_tag_handler',
+		array(
+			'display-block' => true,
+		)
+	);
+}
+
+function wpcf7_response_form_tag_handler( $tag ) {
 	if ( $contact_form = wpcf7_get_current_contact_form() ) {
-		$contact_form->responses_count += 1;
 		return $contact_form->form_response_output();
 	}
 }
-
-?>

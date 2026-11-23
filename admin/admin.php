@@ -1,116 +1,370 @@
 <?php
 
-require_once WPCF7_PLUGIN_DIR . '/admin/admin-functions.php';
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-add_action( 'admin_menu', 'wpcf7_admin_menu', 9 );
+require_once WPCF7_PLUGIN_DIR . '/admin/includes/admin-functions.php';
+require_once WPCF7_PLUGIN_DIR . '/admin/includes/list-table.php';
+require_once WPCF7_PLUGIN_DIR . '/admin/includes/help-tabs.php';
+require_once WPCF7_PLUGIN_DIR . '/admin/includes/tag-generator.php';
+require_once WPCF7_PLUGIN_DIR . '/admin/includes/config-validator.php';
+require_once WPCF7_PLUGIN_DIR . '/admin/includes/ajax-actions.php';
+
+
+add_action(
+	'admin_init',
+	static function () {
+		do_action( 'wpcf7_admin_init' );
+	},
+	10, 0
+);
+
+
+add_action(
+	'admin_menu',
+	'wpcf7_admin_menu',
+	9, 0
+);
 
 function wpcf7_admin_menu() {
-	add_object_page( __( 'Contact Form 7', 'wpcf7' ), __( 'Contact', 'wpcf7' ),
-		'wpcf7_read_contact_forms', 'wpcf7', 'wpcf7_admin_management_page',
-		wpcf7_plugin_url( 'admin/images/menu-icon.png' ) );
+	do_action( 'wpcf7_admin_menu' );
 
-	$contact_form_admin = add_submenu_page( 'wpcf7',
-		__( 'Edit Contact Forms', 'wpcf7' ), __( 'Edit', 'wpcf7' ),
-		'wpcf7_read_contact_forms', 'wpcf7', 'wpcf7_admin_management_page' );
+	add_menu_page(
+		__( 'Contact Form 7 Dashboard', 'contact-form-7' ),
+		__( 'Contact', 'contact-form-7' )
+			. wpcf7_admin_menu_change_notice(),
+		'wpcf7_read_contact_forms',
+		'wpcf7-dashboard',
+		'wpcf7_admin_dashboard_page',
+		'dashicons-email',
+		30
+	);
 
-	add_action( 'load-' . $contact_form_admin, 'wpcf7_load_contact_form_admin' );
+	$dashboard = add_submenu_page(
+		'wpcf7-dashboard',
+		__( 'Contact Form 7 Dashboard', 'contact-form-7' ),
+		__( 'Dashboard', 'contact-form-7' )
+			. wpcf7_admin_menu_change_notice( 'wpcf7-dashboard' ),
+		'wpcf7_read_contact_forms',
+		'wpcf7-dashboard',
+		'wpcf7_admin_dashboard_page'
+	);
+
+	add_action( 'load-' . $dashboard, 'wpcf7_load_dashboard_page', 10, 0 );
+
+	$edit = add_submenu_page(
+		'wpcf7-dashboard',
+		wpcf7_get_current_contact_form()
+			? __( 'Edit Contact Form', 'contact-form-7' )
+			: __( 'Contact Forms', 'contact-form-7' ),
+		__( 'Contact Forms', 'contact-form-7' )
+			. wpcf7_admin_menu_change_notice( 'wpcf7' ),
+		'wpcf7_read_contact_forms',
+		'wpcf7',
+		'wpcf7_admin_management_page'
+	);
+
+	add_action( 'load-' . $edit, 'wpcf7_load_contact_form_admin', 10, 0 );
+
+	$addnew = add_submenu_page(
+		'wpcf7-dashboard',
+		__( 'Add Contact Form', 'contact-form-7' ),
+		__( 'Add Contact Form', 'contact-form-7' )
+			. wpcf7_admin_menu_change_notice( 'wpcf7-new' ),
+		'wpcf7_edit_contact_forms',
+		'wpcf7-new',
+		'wpcf7_admin_add_new_page'
+	);
+
+	add_action( 'load-' . $addnew, 'wpcf7_load_contact_form_admin', 10, 0 );
+
+	$integration = WPCF7_Integration::get_instance();
+
+	if ( $integration->service_exists() ) {
+		$integration = add_submenu_page(
+			'wpcf7-dashboard',
+			__( 'Integration with External API', 'contact-form-7' ),
+			__( 'Integration', 'contact-form-7' )
+				. wpcf7_admin_menu_change_notice( 'wpcf7-integration' ),
+			'wpcf7_manage_integration',
+			'wpcf7-integration',
+			'wpcf7_admin_integration_page'
+		);
+
+		add_action( 'load-' . $integration, 'wpcf7_load_integration_page', 10, 0 );
+	}
 }
 
-add_filter( 'set-screen-option', 'wpcf7_set_screen_options', 10, 3 );
 
-function wpcf7_set_screen_options( $result, $option, $value ) {
-	$wpcf7_screens = array(
-		'cfseven_contact_forms_per_page' );
+function wpcf7_admin_menu_change_notice( $menu_slug = '' ) {
+	$counts = apply_filters( 'wpcf7_admin_menu_change_notice',
+		array(
+			'wpcf7' => 0,
+			'wpcf7-new' => 0,
+			'wpcf7-integration' => 0,
+		)
+	);
 
-	if ( in_array( $option, $wpcf7_screens ) )
-		$result = $value;
+	if ( empty( $menu_slug ) ) {
+		$count = absint( array_sum( $counts ) );
+	} elseif ( isset( $counts[$menu_slug] ) ) {
+		$count = absint( $counts[$menu_slug] );
+	} else {
+		$count = 0;
+	}
 
-	return $result;
+	if ( $count ) {
+		return sprintf(
+			' <span class="update-plugins %1$d"><span class="plugin-count">%2$s</span></span>',
+			$count,
+			esc_html( number_format_i18n( $count ) )
+		);
+	}
+
+	return '';
 }
+
+
+add_action(
+	'admin_enqueue_scripts',
+	'wpcf7_admin_enqueue_scripts',
+	10, 1
+);
+
+function wpcf7_admin_enqueue_scripts( $hook_suffix ) {
+	if ( ! str_contains( $hook_suffix, 'wpcf7' ) ) {
+		return;
+	}
+
+	wp_enqueue_style( 'contact-form-7-admin',
+		wpcf7_plugin_url( 'admin/includes/css/styles.css' ),
+		array(), WPCF7_VERSION, 'all'
+	);
+
+	if ( wpcf7_is_rtl() ) {
+		wp_enqueue_style( 'contact-form-7-admin-rtl',
+			wpcf7_plugin_url( 'admin/includes/css/styles-rtl.css' ),
+			array(), WPCF7_VERSION, 'all'
+		);
+	}
+
+	$assets = include wpcf7_plugin_path( 'admin/includes/js/index.asset.php' );
+
+	$assets = wp_parse_args( $assets, array(
+		'dependencies' => array(),
+		'version' => WPCF7_VERSION,
+	) );
+
+	wp_enqueue_script( 'wpcf7-admin',
+		wpcf7_plugin_url( 'admin/includes/js/index.js' ),
+		$assets['dependencies'],
+		$assets['version'],
+		array( 'in_footer' => true )
+	);
+
+	wp_set_script_translations( 'wpcf7-admin', 'contact-form-7' );
+
+	$wpcf7_obj = array(
+		'apiSettings' => array(
+			'root' => sanitize_url( rest_url( 'contact-form-7/v1' ) ),
+			'namespace' => 'contact-form-7/v1',
+		),
+	);
+
+	$post = wpcf7_get_current_contact_form();
+
+	if ( $post ) {
+		$wpcf7_obj = array_merge( $wpcf7_obj, array(
+			'nonce' => array(
+				'save' => wp_create_nonce(
+					sprintf(
+						'wpcf7-save-contact-form_%s',
+						$post->initial() ? -1 : $post->id()
+					)
+				),
+				'copy' => wp_create_nonce(
+					sprintf(
+						'wpcf7-copy-contact-form_%s',
+						$post->initial() ? -1 : $post->id()
+					)
+				),
+				'delete' => wp_create_nonce(
+					sprintf(
+						'wpcf7-delete-contact-form_%s',
+						$post->initial() ? -1 : $post->id()
+					)
+				),
+			),
+			'configValidator' => array(
+				'errors' => array(),
+				'docUrl' => WPCF7_ConfigValidator::get_doc_link(),
+			),
+		) );
+
+		if (
+			current_user_can( 'wpcf7_edit_contact_form', $post->id() ) and
+			wpcf7_validate_configuration()
+		) {
+			$config_validator = new WPCF7_ConfigValidator( $post );
+			$config_validator->restore();
+
+			$wpcf7_obj['configValidator'] = array_merge(
+				$wpcf7_obj['configValidator'],
+				array(
+					'errors' => $config_validator->collect_error_messages(
+						array( 'decodes_html_entities' => true )
+					),
+				)
+			);
+		}
+	}
+
+	wp_add_inline_script( 'wpcf7-admin',
+		sprintf(
+			'var wpcf7 = %s;',
+			wp_json_encode( $wpcf7_obj, JSON_PRETTY_PRINT )
+		),
+		'before'
+	);
+}
+
+
+add_filter(
+	'set_screen_option_wpcf7_contact_forms_per_page',
+	static function ( $result, $option, $value ) {
+		$wpcf7_screens = array(
+			'wpcf7_contact_forms_per_page',
+		);
+
+		if ( in_array( $option, $wpcf7_screens, true ) ) {
+			$result = $value;
+		}
+
+		return $result;
+	},
+	10, 3
+);
+
+
+function wpcf7_load_dashboard_page() {
+	do_action( 'wpcf7_admin_load',
+		wpcf7_superglobal_get( 'page' ),
+		wpcf7_current_action()
+	);
+
+	require_once WPCF7_PLUGIN_DIR . '/admin/includes/dashboard.php';
+
+	wpcf7_dashboard_setup();
+
+	wp_enqueue_script( 'dashboard' );
+}
+
+
+function wpcf7_admin_dashboard_page() {
+	global $wp_meta_boxes;
+
+	$screen = get_current_screen();
+	$page = $screen->id;
+	$core_widget_ids = array_keys( wpcf7_dashboard_widgets() );
+
+	foreach ( $wp_meta_boxes[$page] as $context => $priorities ) {
+		foreach ( $priorities as $priority => $boxes ) {
+			if ( ! in_array( $priority, array( 'high', 'core' ), true ) ) {
+				continue;
+			}
+
+			foreach ( $boxes as $box_id => $box ) {
+				if ( in_array( $box_id, $core_widget_ids, true ) ) {
+					continue;
+				}
+
+				if ( ! isset( $priorities['default'][$box_id] ) ) {
+					$wp_meta_boxes[$page][$context]['default'][$box_id] = $box;
+				} elseif ( ! isset( $priorities['low'][$box_id] ) ) {
+					$wp_meta_boxes[$page][$context]['low'][$box_id] = $box;
+				}
+
+				unset( $wp_meta_boxes[$page][$context][$priority][$box_id] );
+			}
+		}
+	}
+
+	require_once WPCF7_PLUGIN_DIR . '/admin/dashboard.php';
+}
+
 
 function wpcf7_load_contact_form_admin() {
-	global $wpcf7_contact_form;
+	global $plugin_page;
 
 	$action = wpcf7_current_action();
 
-	if ( 'save' == $action ) {
-		$id = $_POST['post_ID'];
+	do_action( 'wpcf7_admin_load',
+		wpcf7_superglobal_get( 'page' ),
+		$action
+	);
+
+	if ( 'save' === $action ) {
+		$id = wpcf7_superglobal_post( 'post_ID', '-1' );
+
 		check_admin_referer( 'wpcf7-save-contact-form_' . $id );
 
-		if ( ! current_user_can( 'wpcf7_edit_contact_form', $id ) )
-			wp_die( __( 'You are not allowed to edit this item.', 'wpcf7' ) );
-
-		if ( ! $contact_form = wpcf7_contact_form( $id ) ) {
-			$contact_form = new WPCF7_ContactForm();
-			$contact_form->initial = true;
+		if ( ! current_user_can( 'wpcf7_edit_contact_form', $id ) ) {
+			wp_die(
+				esc_html( __( 'You are not allowed to edit this item.', 'contact-form-7' ) )
+			);
 		}
 
-		$contact_form->title = trim( $_POST['wpcf7-title'] );
-
-		$form = trim( $_POST['wpcf7-form'] );
-
-		$mail = array(
-			'subject' => trim( $_POST['wpcf7-mail-subject'] ),
-			'sender' => trim( $_POST['wpcf7-mail-sender'] ),
-			'body' => trim( $_POST['wpcf7-mail-body'] ),
-			'recipient' => trim( $_POST['wpcf7-mail-recipient'] ),
-			'additional_headers' => trim( $_POST['wpcf7-mail-additional-headers'] ),
-			'attachments' => trim( $_POST['wpcf7-mail-attachments'] ),
-			'use_html' =>
-				isset( $_POST['wpcf7-mail-use-html'] ) && 1 == $_POST['wpcf7-mail-use-html']
+		$contact_form = wpcf7_save_contact_form(
+			array_merge(
+				wp_unslash( $_REQUEST ),
+				array(
+					'id' => $id,
+					'title' => wpcf7_superglobal_post( 'post_title', null ),
+					'locale' => wpcf7_superglobal_post( 'wpcf7-locale', null ),
+					'form' => wpcf7_superglobal_post( 'wpcf7-form', '' ),
+					'mail' => wpcf7_superglobal_post( 'wpcf7-mail', array() ),
+					'mail_2' => wpcf7_superglobal_post( 'wpcf7-mail-2', array() ),
+					'messages' => wpcf7_superglobal_post( 'wpcf7-messages', array() ),
+					'additional_settings' => wpcf7_superglobal_post( 'wpcf7-additional-settings', '' ),
+				)
+			)
 		);
 
-		$mail_2 = array(
-			'active' =>
-				isset( $_POST['wpcf7-mail-2-active'] ) && 1 == $_POST['wpcf7-mail-2-active'],
-			'subject' => trim( $_POST['wpcf7-mail-2-subject'] ),
-			'sender' => trim( $_POST['wpcf7-mail-2-sender'] ),
-			'body' => trim( $_POST['wpcf7-mail-2-body'] ),
-			'recipient' => trim( $_POST['wpcf7-mail-2-recipient'] ),
-			'additional_headers' => trim( $_POST['wpcf7-mail-2-additional-headers'] ),
-			'attachments' => trim( $_POST['wpcf7-mail-2-attachments'] ),
-			'use_html' =>
-				isset( $_POST['wpcf7-mail-2-use-html'] ) && 1 == $_POST['wpcf7-mail-2-use-html']
-		);
-
-		$messages = isset( $contact_form->messages ) ? $contact_form->messages : array();
-
-		foreach ( wpcf7_messages() as $key => $arr ) {
-			$field_name = 'wpcf7-message-' . strtr( $key, '_', '-' );
-			if ( isset( $_POST[$field_name] ) )
-				$messages[$key] = trim( $_POST[$field_name] );
+		if ( $contact_form and wpcf7_validate_configuration() ) {
+			$config_validator = new WPCF7_ConfigValidator( $contact_form );
+			$config_validator->validate();
+			$config_validator->save();
 		}
 
-		$additional_settings = trim( $_POST['wpcf7-additional-settings'] );
+		$query = array(
+			'post' => $contact_form ? $contact_form->id() : 0,
+			'active-tab' => wpcf7_canonicalize_name(
+				wpcf7_superglobal_post( 'active-tab' )
+			),
+		);
 
-		$props = apply_filters( 'wpcf7_contact_form_admin_posted_properties',
-			compact( 'form', 'mail', 'mail_2', 'messages', 'additional_settings' ) );
-
-		foreach ( (array) $props as $key => $prop )
-			$contact_form->{$key} = $prop;
-
-		$query = array();
-		$query['message'] = ( $contact_form->initial ) ? 'created' : 'saved';
-
-		$contact_form->save();
-
-		$query['post'] = $contact_form->id;
+		if ( ! $contact_form ) {
+			$query['message'] = 'failed';
+		} elseif ( -1 === (int) $id ) {
+			$query['message'] = 'created';
+		} else {
+			$query['message'] = 'saved';
+		}
 
 		$redirect_to = add_query_arg( $query, menu_page_url( 'wpcf7', false ) );
-
 		wp_safe_redirect( $redirect_to );
 		exit();
 	}
 
-	if ( 'copy' == $action ) {
-		$id = empty( $_POST['post_ID'] )
-			? absint( $_REQUEST['post'] )
-			: absint( $_POST['post_ID'] );
+	if ( 'copy' === $action ) {
+		$id = absint( $_POST['post_ID'] ?? $_REQUEST['post'] ?? '' );
 
 		check_admin_referer( 'wpcf7-copy-contact-form_' . $id );
 
-		if ( ! current_user_can( 'wpcf7_edit_contact_form', $id ) )
-			wp_die( __( 'You are not allowed to edit this item.', 'wpcf7' ) );
+		if ( ! current_user_can( 'wpcf7_edit_contact_form', $id ) ) {
+			wp_die(
+				esc_html( __( 'You are not allowed to edit this item.', 'contact-form-7' ) )
+			);
+		}
 
 		$query = array();
 
@@ -118,10 +372,8 @@ function wpcf7_load_contact_form_admin() {
 			$new_contact_form = $contact_form->copy();
 			$new_contact_form->save();
 
-			$query['post'] = $new_contact_form->id;
+			$query['post'] = $new_contact_form->id();
 			$query['message'] = 'created';
-		} else {
-			$query['post'] = $contact_form->id;
 		}
 
 		$redirect_to = add_query_arg( $query, menu_page_url( 'wpcf7', false ) );
@@ -130,39 +382,49 @@ function wpcf7_load_contact_form_admin() {
 		exit();
 	}
 
-	if ( 'delete' == $action ) {
-		if ( ! empty( $_POST['post_ID'] ) )
-			check_admin_referer( 'wpcf7-delete-contact-form_' . $_POST['post_ID'] );
-		elseif ( ! is_array( $_REQUEST['post'] ) )
-			check_admin_referer( 'wpcf7-delete-contact-form_' . $_REQUEST['post'] );
-		else
-			check_admin_referer( 'bulk-posts' );
+	if ( 'delete' === $action ) {
+		$nonce_action = 'bulk-posts';
 
-		$posts = empty( $_POST['post_ID'] )
-			? (array) $_REQUEST['post']
-			: (array) $_POST['post_ID'];
+		if (
+			$post_id = wpcf7_superglobal_post( 'post_ID' ) or
+			! is_array( $post_id = wpcf7_superglobal_request( 'post', array() ) )
+		) {
+			$nonce_action = sprintf( 'wpcf7-delete-contact-form_%s', $post_id );
+		}
+
+		check_admin_referer( $nonce_action );
+
+		$posts = array_filter( (array) $post_id );
 
 		$deleted = 0;
 
 		foreach ( $posts as $post ) {
-			$post = new WPCF7_ContactForm( $post );
+			$post = WPCF7_ContactForm::get_instance( $post );
 
-			if ( empty( $post ) )
+			if ( empty( $post ) ) {
 				continue;
+			}
 
-			if ( ! current_user_can( 'wpcf7_delete_contact_form', $post->id ) )
-				wp_die( __( 'You are not allowed to delete this item.', 'wpcf7' ) );
+			if ( ! current_user_can( 'wpcf7_delete_contact_form', $post->id() ) ) {
+				wp_die(
+					esc_html( __( 'You are not allowed to delete this item.', 'contact-form-7' ) )
+				);
+			}
 
-			if ( ! $post->delete() )
-				wp_die( __( 'Error in deleting.', 'wpcf7' ) );
+			if ( ! $post->delete() ) {
+				wp_die(
+					esc_html( __( 'Error in deleting.', 'contact-form-7' ) )
+				);
+			}
 
 			$deleted += 1;
 		}
 
 		$query = array();
 
-		if ( ! empty( $deleted ) )
+		if ( ! empty( $deleted ) ) {
 			$query['message'] = 'deleted';
+		}
 
 		$redirect_to = add_query_arg( $query, menu_page_url( 'wpcf7', false ) );
 
@@ -170,318 +432,244 @@ function wpcf7_load_contact_form_admin() {
 		exit();
 	}
 
-	$_GET['post'] = isset( $_GET['post'] ) ? $_GET['post'] : '';
-
 	$post = null;
 
-	if ( 'new' == $_GET['post'] && current_user_can( 'wpcf7_edit_contact_forms' ) )
-		$post = wpcf7_get_contact_form_default_pack(
-			array( 'locale' => ( isset( $_GET['locale'] ) ? $_GET['locale'] : '' ) ) );
-	elseif ( ! empty( $_GET['post'] ) )
-		$post = wpcf7_contact_form( $_GET['post'] );
-
-	if ( $post && current_user_can( 'wpcf7_edit_contact_form', $post->id ) ) {
-		wpcf7_add_meta_boxes( $post->id );
-
-	} else {
-		$current_screen = get_current_screen();
-
-		if ( ! class_exists( 'WPCF7_Contact_Form_List_Table' ) )
-			require_once WPCF7_PLUGIN_DIR . '/admin/includes/class-contact-forms-list-table.php';
-
-		add_filter( 'manage_' . $current_screen->id . '_columns',
-			array( 'WPCF7_Contact_Form_List_Table', 'define_columns' ) );
-
-		add_screen_option( 'per_page', array(
-			'label' => __( 'Contact Forms', 'wpcf7' ),
-			'default' => 20,
-			'option' => 'cfseven_contact_forms_per_page' ) );
+	if ( 'wpcf7-new' === $plugin_page ) {
+		$post = WPCF7_ContactForm::get_template( array(
+			'locale' => wpcf7_superglobal_get( 'locale', null ),
+		) );
+	} elseif ( $post_id = wpcf7_superglobal_get( 'post' ) ) {
+		$post = WPCF7_ContactForm::get_instance( $post_id );
 	}
-
-	$wpcf7_contact_form = $post;
-}
-
-add_action( 'admin_enqueue_scripts', 'wpcf7_admin_enqueue_scripts' );
-
-function wpcf7_admin_enqueue_scripts( $hook_suffix ) {
-	if ( false === strpos( $hook_suffix, 'wpcf7' ) )
-		return;
-
-	wp_enqueue_style( 'contact-form-7-admin',
-		wpcf7_plugin_url( 'admin/css/styles.css' ),
-		array( 'thickbox' ), WPCF7_VERSION, 'all' );
-
-	if ( wpcf7_is_rtl() ) {
-		wp_enqueue_style( 'contact-form-7-admin-rtl',
-			wpcf7_plugin_url( 'admin/css/styles-rtl.css' ),
-			array(), WPCF7_VERSION, 'all' );
-	}
-
-	wp_enqueue_script( 'wpcf7-admin-taggenerator',
-		wpcf7_plugin_url( 'admin/js/taggenerator.js' ),
-		array( 'jquery' ), WPCF7_VERSION, true );
-
-	wp_enqueue_script( 'wpcf7-admin',
-		wpcf7_plugin_url( 'admin/js/scripts.js' ),
-		array( 'jquery', 'thickbox', 'postbox', 'wpcf7-admin-taggenerator' ),
-		WPCF7_VERSION, true );
 
 	$current_screen = get_current_screen();
 
-	wp_localize_script( 'wpcf7-admin', '_wpcf7', array(
-		'screenId' => $current_screen->id,
-		'generateTag' => __( 'Generate Tag', 'wpcf7' ),
-		'pluginUrl' => wpcf7_plugin_url(),
-		'tagGenerators' => wpcf7_tag_generators() ) );
-}
+	$help_tabs = new WPCF7_Help_Tabs( $current_screen );
 
-add_action( 'admin_print_footer_scripts', 'wpcf7_print_taggenerators_json', 20 );
+	if ( $post and current_user_can( 'wpcf7_edit_contact_form', $post->id() ) ) {
+		$help_tabs->set_help_tabs( 'edit' );
+	} else {
+		// Construct a list table before get_column_headers() is called.
+		WPCF7_List_Table::get_instance();
 
-function wpcf7_print_taggenerators_json() { // for backward compatibility
-	global $plugin_page, $wpcf7_tag_generators;
+		add_screen_option( 'per_page', array(
+			'default' => 20,
+			'option' => 'wpcf7_contact_forms_per_page',
+		) );
 
-	if ( ! version_compare( get_bloginfo( 'version' ), '3.3-dev', '<' ) )
-		return;
-
-	if ( ! isset( $plugin_page ) || 'wpcf7' != $plugin_page )
-		return;
-
-	$taggenerators = array();
-
-	foreach ( (array) $wpcf7_tag_generators as $name => $tg ) {
-		$taggenerators[$name] = array_merge(
-			(array) $tg['options'],
-			array( 'title' => $tg['title'], 'content' => $tg['content'] ) );
+		$help_tabs->set_help_tabs( 'list' );
 	}
-
-?>
-<script type="text/javascript">
-/* <![CDATA[ */
-_wpcf7.tagGenerators = <?php echo json_encode( $taggenerators ) ?>;
-/* ]]> */
-</script>
-<?php
 }
+
 
 function wpcf7_admin_management_page() {
-	global $wpcf7_contact_form;
+	if ( $post = wpcf7_get_current_contact_form() ) {
+		$post_id = $post->initial() ? -1 : $post->id();
 
-	if ( $wpcf7_contact_form ) {
-		$post =& $wpcf7_contact_form;
-		$post_id = $post->initial ? -1 : $post->id;
-
-		require_once WPCF7_PLUGIN_DIR . '/admin/includes/meta-boxes.php';
+		require_once WPCF7_PLUGIN_DIR . '/admin/includes/editor.php';
 		require_once WPCF7_PLUGIN_DIR . '/admin/edit-contact-form.php';
 		return;
 	}
 
-	$list_table = new WPCF7_Contact_Form_List_Table();
-	$list_table->prepare_items();
-
-?>
-<div class="wrap">
-<?php screen_icon(); ?>
-
-<h2><?php
-	echo esc_html( __( 'Contact Form 7', 'wpcf7' ) );
-
-	echo ' <a href="#TB_inline?height=300&width=400&inlineId=wpcf7-lang-select-modal" class="add-new-h2 thickbox">' . esc_html( __( 'Add New', 'wpcf7' ) ) . '</a>';
-
-	if ( ! empty( $_REQUEST['s'] ) ) {
-		echo sprintf( '<span class="subtitle">'
-			. __( 'Search results for &#8220;%s&#8221;', 'wpcf7' )
-			. '</span>', esc_html( $_REQUEST['s'] ) );
+	if (
+		'validate' === wpcf7_current_action() and
+		wpcf7_validate_configuration() and
+		current_user_can( 'wpcf7_edit_contact_forms' )
+	) {
+		wpcf7_admin_bulk_validate_page();
+		return;
 	}
-?></h2>
 
-<?php do_action( 'wpcf7_admin_notices' ); ?>
-
-<form method="get" action="">
-	<input type="hidden" name="page" value="<?php echo esc_attr( $_REQUEST['page'] ); ?>" />
-	<?php $list_table->search_box( __( 'Search Contact Forms', 'wpcf7' ), 'wpcf7-contact' ); ?>
-	<?php $list_table->display(); ?>
-</form>
-
-</div>
-<?php
-	wpcf7_admin_lang_select_modal();
+	require_once WPCF7_PLUGIN_DIR . '/admin/contact-forms.php';
 }
 
-function wpcf7_admin_lang_select_modal() {
-	$available_locales = wpcf7_l10n();
-	$default_locale = get_locale();
 
-	if ( ! isset( $available_locales[$default_locale] ) )
-		$default_locale = 'en_US';
+function wpcf7_admin_add_new_page() {
+	$post = wpcf7_get_current_contact_form();
 
-?>
-<div id="wpcf7-lang-select-modal" class="hidden">
-<h4><?php echo esc_html( sprintf( __( 'Use the default language (%s)', 'wpcf7' ), $available_locales[$default_locale] ) ); ?></h4>
-<p><a href="<?php echo esc_url( add_query_arg( array( 'post' => 'new' ), menu_page_url( 'wpcf7', false ) ) ); ?>" class="button" /><?php echo esc_html( __( 'Add New', 'wpcf7' ) ); ?></a></p>
+	if ( ! $post ) {
+		$post = WPCF7_ContactForm::get_template();
+	}
 
-<?php unset( $available_locales[$default_locale] ); ?>
-<h4><?php echo esc_html( __( 'Or', 'wpcf7' ) ); ?></h4>
-<form action="" method="get">
-<input type="hidden" name="page" value="wpcf7" />
-<input type="hidden" name="post" value="new" />
-<select name="locale">
-<option value="" selected="selected"><?php echo esc_html( __( '(select language)', 'wpcf7' ) ); ?></option>
-<?php foreach ( $available_locales as $code => $locale ) : ?>
-<option value="<?php echo esc_attr( $code ); ?>"><?php echo esc_html( $locale ); ?></option>
-<?php endforeach; ?>
-</select>
-<input type="submit" class="button" value="<?php echo esc_attr( __( 'Add New', 'wpcf7' ) ); ?>" />
-</form>
-</div>
-<?php
+	$post_id = -1;
+
+	require_once WPCF7_PLUGIN_DIR . '/admin/includes/editor.php';
+	require_once WPCF7_PLUGIN_DIR . '/admin/edit-contact-form.php';
 }
 
-function wpcf7_add_meta_boxes( $post_id ) {
-	add_meta_box( 'formdiv', __( 'Form', 'wpcf7' ),
-		'wpcf7_form_meta_box', null, 'form', 'core' );
 
-	add_meta_box( 'maildiv', __( 'Mail', 'wpcf7' ),
-		'wpcf7_mail_meta_box', null, 'mail', 'core' );
+function wpcf7_load_integration_page() {
+	do_action( 'wpcf7_admin_load',
+		wpcf7_superglobal_get( 'page' ),
+		wpcf7_current_action()
+	);
 
-	add_meta_box( 'mail2div', __( 'Mail (2)', 'wpcf7' ),
-		'wpcf7_mail_meta_box', null, 'mail_2', 'core',
-		array(
-			'id' => 'wpcf7-mail-2',
-			'name' => 'mail_2',
-			'use' => __( 'Use mail (2)', 'wpcf7' ) ) );
+	$integration = WPCF7_Integration::get_instance();
 
-	add_meta_box( 'messagesdiv', __( 'Messages', 'wpcf7' ),
-		'wpcf7_messages_meta_box', null, 'messages', 'core' );
+	if (
+		$service_name = wpcf7_superglobal_request( 'service' ) and
+		$integration->service_exists( $service_name )
+	) {
+		$service = $integration->get_service( $service_name );
+		$service->load( wpcf7_current_action() );
+	}
 
-	add_meta_box( 'additionalsettingsdiv', __( 'Additional Settings', 'wpcf7' ),
-		'wpcf7_additional_settings_meta_box', null, 'additional_settings', 'core' );
-
-	do_action( 'wpcf7_add_meta_boxes', $post_id );
+	$help_tabs = new WPCF7_Help_Tabs( get_current_screen() );
+	$help_tabs->set_help_tabs( 'integration' );
 }
 
-/* Misc */
 
-add_action( 'wpcf7_admin_notices', 'wpcf7_admin_before_subsubsub' );
+function wpcf7_admin_integration_page() {
+	require_once WPCF7_PLUGIN_DIR . '/admin/integration.php';
+}
 
-function wpcf7_admin_before_subsubsub() {
-	// wpcf7_admin_before_subsubsub is deprecated. Use wpcf7_admin_notices instead.
 
-	$current_screen = get_current_screen();
+add_action( 'wpcf7_admin_notices', 'wpcf7_admin_updated_message', 10, 3 );
 
-	if ( 'toplevel_page_wpcf7' != $current_screen->id )
+function wpcf7_admin_updated_message( $page, $action, $object ) {
+	if ( ! in_array( $page, array( 'wpcf7', 'wpcf7-new' ), true ) ) {
 		return;
+	}
 
-	if ( empty( $_GET['post'] ) || ! $contact_form = wpcf7_contact_form( $_GET['post'] ) )
+	$message_type = wpcf7_superglobal_request( 'message' );
+
+	if ( ! $message_type ) {
 		return;
+	}
 
-	do_action_ref_array( 'wpcf7_admin_before_subsubsub', array( &$contact_form ) );
+	$notice_type = 'success';
+
+	if ( 'created' === $message_type ) {
+		$message = __( 'Contact form created.', 'contact-form-7' );
+	} elseif ( 'saved' === $message_type ) {
+		$message = __( 'Contact form saved.', 'contact-form-7' );
+	} elseif ( 'deleted' === $message_type ) {
+		$message = __( 'Contact form deleted.', 'contact-form-7' );
+	} elseif ( 'failed' === $message_type ) {
+		$notice_type = 'error';
+		$message = __( 'There was an error saving the contact form.', 'contact-form-7' );
+	} elseif ( 'validated' === $message_type ) {
+		$bulk_validate = WPCF7::get_option( 'bulk_validate', array() );
+		$count_invalid = absint( $bulk_validate['count_invalid'] ?? 0 );
+
+		if ( $count_invalid ) {
+			$notice_type = 'warning';
+
+			$message = sprintf(
+				/* translators: %s: number of contact forms */
+				_n(
+					'Configuration validation completed. %s invalid contact form was found.',
+					'Configuration validation completed. %s invalid contact forms were found.',
+					$count_invalid, 'contact-form-7'
+				),
+				number_format_i18n( $count_invalid )
+			);
+		} else {
+			$message = __( 'Configuration validation completed. No invalid contact form was found.', 'contact-form-7' );
+		}
+	}
+
+	if ( ! empty( $message ) ) {
+		wp_admin_notice(
+			$message,
+			array( 'type' => $notice_type )
+		);
+	}
 }
 
-add_action( 'wpcf7_admin_notices', 'wpcf7_admin_updated_message' );
-
-function wpcf7_admin_updated_message() {
-	if ( empty( $_REQUEST['message'] ) )
-		return;
-
-	if ( 'created' == $_REQUEST['message'] )
-		$updated_message = esc_html( __( 'Contact form created.', 'wpcf7' ) );
-	elseif ( 'saved' == $_REQUEST['message'] )
-		$updated_message = esc_html( __( 'Contact form saved.', 'wpcf7' ) );
-	elseif ( 'deleted' == $_REQUEST['message'] )
-		$updated_message = esc_html( __( 'Contact form deleted.', 'wpcf7' ) );
-
-	if ( empty( $updated_message ) )
-		return;
-
-?>
-<div id="message" class="updated"><p><?php echo $updated_message; ?></p></div>
-<?php
-}
 
 add_filter( 'plugin_action_links', 'wpcf7_plugin_action_links', 10, 2 );
 
 function wpcf7_plugin_action_links( $links, $file ) {
-	if ( $file != WPCF7_PLUGIN_BASENAME )
+	if ( WPCF7_PLUGIN_BASENAME !== $file ) {
 		return $links;
+	}
 
-	$settings_link = '<a href="' . menu_page_url( 'wpcf7', false ) . '">'
-		. esc_html( __( 'Settings', 'wpcf7' ) ) . '</a>';
+	if ( ! current_user_can( 'wpcf7_read_contact_forms' ) ) {
+		return $links;
+	}
+
+	$settings_link = wpcf7_link(
+		menu_page_url( 'wpcf7-dashboard', false ),
+		__( 'Settings', 'contact-form-7' )
+	);
 
 	array_unshift( $links, $settings_link );
 
 	return $links;
 }
 
-add_action( 'wpcf7_admin_notices', 'wpcf7_cf7com_links', 9 );
 
-function wpcf7_cf7com_links() {
-	$links = '<div class="cf7com-links">'
-		. '<a href="' . esc_url_raw( __( 'http://contactform7.com/docs/', 'wpcf7' ) ) . '" target="_blank">'
-		. esc_html( __( 'Docs', 'wpcf7' ) ) . '</a> - '
-		. '<a href="' . esc_url_raw( __( 'http://contactform7.com/faq/', 'wpcf7' ) ) . '" target="_blank">'
-		. esc_html( __( 'FAQ', 'wpcf7' ) ) . '</a> - '
-		. '<a href="' . esc_url_raw( __( 'http://contactform7.com/support/', 'wpcf7' ) ) . '" target="_blank">'
-		. esc_html( __( 'Support', 'wpcf7' ) ) . '</a>'
-		. '</div>';
+add_action( 'wpcf7_admin_warnings', 'wpcf7_old_wp_version_error', 10, 3 );
 
-	echo apply_filters( 'wpcf7_cf7com_links', $links );
-}
-
-add_action( 'wpcf7_admin_notices', 'wpcf7_donation_link' );
-
-function wpcf7_donation_link() {
-	if ( ! WPCF7_SHOW_DONATION_LINK )
-		return;
-
-	if ( ! empty( $_REQUEST['post'] ) && 'new' == $_REQUEST['post'] )
-		return;
-
-	if ( ! empty( $_REQUEST['message'] ) )
-		return;
-
-	$show_link = true;
-
-	$num = mt_rand( 0, 99 );
-
-	if ( $num >= 20 )
-		$show_link = false;
-
-	$show_link = apply_filters( 'wpcf7_show_donation_link', $show_link );
-
-	if ( ! $show_link )
-		return;
-
-	$texts = array(
-		__( "Contact Form 7 needs your support. Please donate today.", 'wpcf7' ),
-		__( "Your contribution is needed for making this plugin better.", 'wpcf7' ) );
-
-	$text = $texts[array_rand( $texts )];
-
-?>
-<div class="donation">
-<p><a href="<?php echo esc_url_raw( __( 'http://contactform7.com/donate/', 'wpcf7' ) ); ?>"><?php echo esc_html( $text ); ?></a> <a href="<?php echo esc_url_raw( __( 'http://contactform7.com/donate/', 'wpcf7' ) ); ?>" class="button"><?php echo esc_html( __( "Donate", 'wpcf7' ) ); ?></a></p>
-</div>
-<?php
-}
-
-add_action( 'admin_notices', 'wpcf7_old_wp_version_error', 9 );
-
-function wpcf7_old_wp_version_error() {
-	global $plugin_page;
-
-	if ( 'wpcf7' != $plugin_page )
-		return;
-
+function wpcf7_old_wp_version_error( $page, $action, $object ) {
 	$wp_version = get_bloginfo( 'version' );
 
-	if ( ! version_compare( $wp_version, WPCF7_REQUIRED_WP_VERSION, '<' ) )
-		return;
-
-?>
-<div class="error">
-<p><?php echo sprintf( __( '<strong>Contact Form 7 %1$s requires WordPress %2$s or higher.</strong> Please <a href="%3$s">update WordPress</a> first.', 'wpcf7' ), WPCF7_VERSION, WPCF7_REQUIRED_WP_VERSION, admin_url( 'update-core.php' ) ); ?></p>
-</div>
-<?php
+	if ( version_compare( $wp_version, WPCF7_REQUIRED_WP_VERSION, '<' ) ) {
+		wp_admin_notice(
+			sprintf(
+				/* translators: 1: version of Contact Form 7, 2: version of WordPress, 3: URL */
+				__( '<strong>Contact Form 7 %1$s requires WordPress %2$s or higher.</strong> Please <a href="%3$s">update WordPress</a> first.', 'contact-form-7' ),
+				WPCF7_VERSION,
+				WPCF7_REQUIRED_WP_VERSION,
+				admin_url( 'update-core.php' )
+			),
+			array( 'type' => 'warning' )
+		);
+	}
 }
 
-?>
+
+add_action( 'wpcf7_admin_warnings', 'wpcf7_not_allowed_to_edit', 10, 3 );
+
+function wpcf7_not_allowed_to_edit( $page, $action, $object ) {
+	if ( $object instanceof WPCF7_ContactForm ) {
+		$contact_form = $object;
+	} else {
+		return;
+	}
+
+	if ( ! current_user_can( 'wpcf7_edit_contact_form', $contact_form->id() ) ) {
+		wp_admin_notice(
+			__( 'You are not allowed to edit this contact form.', 'contact-form-7' ),
+			array( 'type' => 'warning' )
+		);
+	}
+}
+
+
+add_action( 'wpcf7_admin_warnings', 'wpcf7_ctct_deprecated_warning', 10, 3 );
+
+function wpcf7_ctct_deprecated_warning( $page, $action, $object ) {
+	$service = WPCF7_ConstantContact::get_instance();
+
+	if ( $service->is_active() ) {
+		wp_admin_notice(
+			sprintf(
+				/* translators: 1: URL to announcement post, 2: URL to Brevo integration doc */
+				__( 'Contact Form 7 has completed the <a href="%1$s">removal of the Constant Contact integration</a>. We recommend <a href="%2$s">Brevo</a> as an alternative.', 'contact-form-7' ),
+				'https://contactform7.com/2025/01/08/complete-removal-of-constant-contact-integration/',
+				'https://contactform7.com/sendinblue-integration/'
+			),
+			array( 'type' => 'warning' )
+		);
+	}
+}
+
+
+add_action( 'wpcf7_admin_warnings', 'wpcf7_captcha_future_warning', 10, 3 );
+
+function wpcf7_captcha_future_warning( $page, $action, $object ) {
+	$service = WPCF7_RECAPTCHA::get_instance();
+
+	if ( $service->is_active() ) {
+		wp_admin_notice(
+			sprintf(
+				/* translators: %s: URL to Turnstile integration doc */
+				__( '<strong>Attention reCAPTCHA users:</strong> Google attempts to make all reCAPTCHA users migrate to reCAPTCHA Enterprise, meaning Google charges you for API calls exceeding the free tier. Contact Form 7 supports <a href="%s">Cloudflare Turnstile</a>, and we recommend it unless you have reasons to use reCAPTCHA.', 'contact-form-7' ),
+				'https://contactform7.com/turnstile-integration/'
+			),
+			array( 'type' => 'warning' )
+		);
+	}
+}
